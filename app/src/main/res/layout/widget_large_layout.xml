@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background_shape"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Top Header details -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true">
+
+            <TextView
+                android:id="@+id/widget_hijri_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="19 Zulhijjah 1447 H"
+                android:textColor="@color/gold_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_gregorian_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Selasa, 5 Juni 2026"
+                android:textColor="@color/text_primary"
+                android:textSize="11sp"
+                android:layout_marginTop="1dp" />
+
+            <TextView
+                android:id="@+id/widget_location"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Menteng, Jakarta"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:layout_marginTop="2dp" />
+
+        </LinearLayout>
+
+        <!-- Dynamic highlighted countdown next prayer bubble on the right -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="end"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true">
+
+            <TextView
+                android:id="@+id/widget_next_prayer_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Hingga Maghrib"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/widget_prayer_countdown"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="01:32:04"
+                android:textColor="@color/teal_accent"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+    <!-- Horizontal line separator -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#33E5AF10"
+        android:layout_marginVertical="10dp" />
+
+    <!-- Core Prayer Times Row List (Subuh, Dzuhur, Ashar, Maghrib, Isya) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:layout_weight="1">
+
+        <!-- Row 1: Subuh -->
+        <RelativeLayout
+            android:id="@+id/row_fajr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="3dp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="4dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Subuh (Fajr)"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:layout_alignParentStart="true" />
+
+            <TextView
+                android:id="@+id/time_fajr"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="04:32"
+                android:textColor="@color/gold_light"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_alignParentEnd="true" />
+        </RelativeLayout>
+
+        <!-- Row 2: Dzuhur -->
+        <RelativeLayout
+            android:id="@+id/row_dhuhr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="3dp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="4dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Dzuhur"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:layout_alignParentStart="true" />
+
+            <TextView
+                android:id="@+id/time_dhuhr"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="12:05"
+                android:textColor="@color/gold_light"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_alignParentEnd="true" />
+        </RelativeLayout>
+
+        <!-- Row 3: Ashar -->
+        <RelativeLayout
+            android:id="@+id/row_asr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="3dp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="4dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ashar"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:layout_alignParentStart="true" />
+
+            <TextView
+                android:id="@+id/time_asr"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="15:28"
+                android:textColor="@color/gold_light"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_alignParentEnd="true" />
+        </RelativeLayout>
+
+        <!-- Row 4: Maghrib -->
+        <RelativeLayout
+            android:id="@+id/row_maghrib"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="3dp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="4dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Maghrib"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:layout_alignParentStart="true" />
+
+            <TextView
+                android:id="@+id/time_maghrib"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="17:58"
+                android:textColor="@color/gold_light"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_alignParentEnd="true" />
+        </RelativeLayout>
+
+        <!-- Row 5: Isya -->
+        <RelativeLayout
+            android:id="@+id/row_isha"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="3dp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="4dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Isya"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:layout_alignParentStart="true" />
+
+            <TextView
+                android:id="@+id/time_isha"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="19:12"
+                android:textColor="@color/gold_light"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_alignParentEnd="true" />
+        </RelativeLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

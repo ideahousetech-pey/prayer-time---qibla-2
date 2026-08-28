@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Izin Akses Internet dan Jaringan untuk API Aladhan -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Izin Lokasi Perangkat Realtime GPS (Fine untuk Kompas Kiblat, Coarse untuk jadwal Sholat harian) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Izin Alarm Presisi Tepat Sasaran di Android 12+ (S+) -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- Izin Post Pemberitahuan Notifikasi di Android 13+ (Tiramisu+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Izin Foreground Service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Izin Tambahan & Pemulihan Sistem (Critical untuk reschedule alarm pasca-reboot) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Deklarasi Fitur Perangkat Lunak & Keras (required=false agar tetap dapat diinstal di TV/Tablet tanpa sensor) -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
+
+    <!-- Proteksi Keamanan Widget dan Receiver melalui Signature Permission -->
+    <permission
+        android:name="id.ideahousetech.prayertime_qibla.permission.SECURE_WIDGET"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="id.ideahousetech.prayertime_qibla.permission.SECURE_WIDGET" />
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/Theme.MyApplication">
+        
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.MyApplication">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Registrasi BroadcastReceiver untuk penangkap pemicu Alarm Adzan -->
+        <receiver
+            android:name=".service.AlarmReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="id.ideahousetech.prayertime_qibla.ACTION_PLAY_ADZAN" />
+                <action android:name="id.ideahousetech.prayertime_qibla.ACTION_STOP_ADZAN" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Registrasi BootReceiver untuk memulihkan alarm harian saat reboot & update -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Registrasi Foreground Service -->
+        <service
+            android:name=".service.AdzanForegroundService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Layanan ini menjaga agar scheduler adzan tetap berjalan tepat waktu dan tidak di-kill oleh OS." />
+        </service>
+
+        <!-- Widget Sholat: Small (2x2) -->
+        <receiver
+            android:name=".widget.PrayerSmallWidgetProvider"
+            android:exported="true"
+            android:permission="id.ideahousetech.prayertime_qibla.permission.SECURE_WIDGET"
+            android:label="Jadwal Sholat (Small)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_small_info" />
+        </receiver>
+
+        <!-- Widget Sholat: Medium (4x2) -->
+        <receiver
+            android:name=".widget.PrayerMediumWidgetProvider"
+            android:exported="true"
+            android:permission="id.ideahousetech.prayertime_qibla.permission.SECURE_WIDGET"
+            android:label="Jadwal Sholat (Medium)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_medium_info" />
+        </receiver>
+
+        <!-- Widget Sholat: Large (4x4) -->
+        <receiver
+            android:name=".widget.PrayerLargeWidgetProvider"
+            android:exported="true"
+            android:permission="id.ideahousetech.prayertime_qibla.permission.SECURE_WIDGET"
+            android:label="Jadwal Sholat (Large)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_large_info" />
+        </receiver>
+
+    </application>
+
+</manifest>

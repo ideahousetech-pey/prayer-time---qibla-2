@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Kebijakan dasar: Wajibkan HTTPS secara global -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Konfigurasi khusus untuk Aladhan API dengan pin sertifikat -->
+    <domain-config>
+        <domain includeSubdomains="true">api.aladhan.com</domain>
+        <domain includeSubdomains="true">aladhan.com</domain>
+        
+        <!-- SSL Pinning untuk aladhan.com -->
+        <!-- Sertakan setidaknya satu pin cadangan (backup pin) untuk menghindari pemblokiran jika sertifikat diperbarui -->
+        <pin-set expiration="2027-12-31">
+            <!-- Primary Pin (ZeroSSL Leaf) -->
+            <pin digest="SHA-256">bHNfE1QgjMtEXmwEnjrKvgNKkm12O5mCNV9obizl7P0=</pin>
+            <!-- Backup Pin 1 (ZeroSSL Intermediate) -->
+            <pin digest="SHA-256">rnhtVs65ADYfQGtMuB0jq2kZwwHy6/iqnBiUKcK1m0Y=</pin>
+            <!-- Backup Pin 2 (Sectigo Root) -->
+            <pin digest="SHA-256">Douxi77vs4G+Ib/BogbTFymEYq0QSFXwSgVCaZcI09Q=</pin>
+        </pin-set>
+    </domain-config>
+
+    <!-- Mengizinkan proxy debug (seperti Charles atau Fiddler) dengan mempercayai sertifikat user -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background_shape"
+    android:padding="16dp">
+
+    <!-- Top ornament / tiny header icon -->
+    <TextView
+        android:id="@+id/widget_app_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Waktu Sholat"
+        android:textColor="@color/gold_primary"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:layout_centerInParent="true">
+
+        <TextView
+            android:id="@+id/widget_prayer_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sholat Berikutnya"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/widget_prayer_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Maghrib"
+            android:textColor="@color/gold_light"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginTop="2dp" />
+
+        <TextView
+            android:id="@+id/widget_prayer_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="17:58"
+            android:textColor="@color/teal_accent"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="2dp" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_prayer_countdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="01:24:10"
+        android:textColor="@color/text_primary"
+        android:textSize="11sp"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true" />
+
+</RelativeLayout>

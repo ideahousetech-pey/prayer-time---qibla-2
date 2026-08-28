@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude EncryptedSharedPreferences karena kunci terikat hardware perangkat asal -->
+    <exclude domain="sharedpref" path="adzan_secure_prefs.xml" />
+    
+    <!-- Exclude cache koordinat GPS sensitif -->
+    <exclude domain="sharedpref" path="user_location_cache.xml" />
+    
+    <!-- Exclude cache database lokal -->
+    <exclude domain="database" path="prayer_qibla_db" />
+    <exclude domain="database" path="prayer_qibla_db-shm" />
+    <exclude domain="database" path="prayer_qibla_db-wal" />
+    
+    <!-- Exclude file audio Adzan MP3 berukuran besar -->
+    <exclude domain="file" path="adzan.mp3" />
+    <exclude domain="file" path="adzan_fajr.mp3" />
+
+    <!-- Include pengaturan dasar non-sensitif -->
+    <include domain="sharedpref" path="adzan_secure_prefs_plain_fallback.xml" />
+    <include domain="sharedpref" path="adzan_individual_prefs.xml" />
+    <include domain="sharedpref" path="quran_bookmarks.xml" />
+</full-backup-content>

@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isKoordinator() {
+      return exists(/databases/$(database)/documents/teachers/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data.role == "koordinator";
+    }
+
+    function isOwnerTeacherOf(classId) {
+      return classId != null &&
+             exists(/databases/$(database)/documents/classes/$(classId)) &&
+             get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
+    }
+
+    function isWithinTaskDay(taskId) {
+      let task = get(/databases/$(database)/documents/tasks/$(taskId));
+      let dayStart = task.data.taskDate;
+      let dayEnd = dayStart + duration.value(1, 'd');
+      return request.time >= dayStart && request.time < dayEnd;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // TEACHERS COLLECTION
+    // CATATAN TEGAS SOAL KEAMANAN ROLE:
+    // Field 'role' HANYA bisa diisi "guru" saat registrasi akun baru melalui client.
+    // Pada operasi update, field 'role' WAJIB sama persis dengan yang sudah tersimpan di database
+    // (request.resource.data.role == resource.data.role).
+    // Role "koordinator" TIDAK DAPAT didaftarkan atau di-elevate secara mandiri oleh client manapun.
+    // Role "koordinator" HANYA BISA di-set secara manual oleh developer lewat Firebase Console.
+    // ────────────────────────────────────────────────────────────────────────
+    match /teachers/{teacherId} {
+      allow read: if request.auth != null && (request.auth.uid == teacherId || isKoordinator());
+      allow create: if request.auth != null && request.auth.uid == teacherId && request.resource.data.role == "guru";
+      allow update: if request.auth != null && request.auth.uid == teacherId && request.resource.data.role == resource.data.role;
+      allow delete: if false;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // CLASSES COLLECTION
+    // Koordinator hanya memiliki hak READ-ONLY untuk seluruh kelas.
+    // Hak penulisan/pembaruan kelas HANYA dimiliki oleh guru pembuat kelas (isOwnerTeacherOf).
+    // ────────────────────────────────────────────────────────────────────────
+    match /classes/{classId} {
+      allow read: if request.auth != null && (
+        isKoordinator() || 
+        isOwnerTeacherOf(classId) || 
+        (exists(/databases/$(database)/documents/students/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/students/$(request.auth.uid)).data.classId == classId)
+      );
+      allow create: if request.auth != null && request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if isOwnerTeacherOf(classId);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // STUDENTS COLLECTION
+    // Siswa dapat membaca dan memperbarui data pribadinya sendiri.
+    // Guru pemilik kelas dan koordinator dapat membaca profil siswa.
+    // ────────────────────────────────────────────────────────────────────────
+    match /students/{studentId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == studentId || 
+        isKoordinator() || 
+        isOwnerTeacherOf(resource.data.classId)
+      );
+      allow create: if request.auth != null && request.auth.uid == studentId;
+      allow update: if request.auth != null && request.auth.uid == studentId;
+      allow delete: if false;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // TASKS COLLECTION
+    // Tugas default (classId == null) dapat dibaca seluruh user terotentikasi.
+    // ────────────────────────────────────────────────────────────────────────
+    match /tasks/{taskId} {
+      allow read: if request.auth != null && (
+        isKoordinator() || 
+        resource.data.classId == null ||
+        isOwnerTeacherOf(resource.data.classId) || 
+        (exists(/databases/$(database)/documents/students/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/students/$(request.auth.uid)).data.classId == resource.data.classId)
+      );
+      allow write: if request.resource.data.classId != null && isOwnerTeacherOf(request.resource.data.classId);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // SUBMISSIONS COLLECTION
+    // Validasi Lock: Submission HANYA bisa dibuat/diubah selama masih dalam rentang
+    // tanggal kalender yang sama dengan taskDate tugas, dihitung dari request.time
+    // (jam server Firestore), bukan jam lokal pada perangkat siswa.
+    // ────────────────────────────────────────────────────────────────────────
+    match /submissions/{submissionId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.studentId || 
+        isKoordinator() || 
+        isOwnerTeacherOf(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.classId)
+      );
+      allow create, update: if request.auth != null && 
+        request.auth.uid == request.resource.data.studentId && 
+        isWithinTaskDay(request.resource.data.taskId);
+      allow delete: if false;
+    }
+  }
+}

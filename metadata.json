@@ -1,0 +1,6 @@
+{
+  "name": "Prayer Times & Qibla",
+  "description": "An authentic Islamic companion app with real-time prayer schedules, live countdowns, precise compass-based Qibla, a comprehensive Hijri calendar with major events, and daily prayer collections.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
