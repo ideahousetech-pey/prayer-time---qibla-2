@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_ENV_SECRET: ${{ secrets.ENV_FILE_BASE64 != '' }}
+      GRADLE_OPTS: "-Djava.awt.headless=true -Dorg.gradle.daemon=false"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,7 +44,7 @@ jobs:
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle assembleRelease --stacktrace
+        run: gradle assembleRelease --stacktrace --no-daemon -Djava.awt.headless=true
 
       - name: Cari path APK
         id: apk
