@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_ENV_SECRET: ${{ secrets.ENV_FILE_BASE64 != '' }}
+      GRADLE_OPTS: "-Djava.awt.headless=true -Dorg.gradle.daemon=false"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,7 +46,7 @@ jobs:
           gradle-version: current
 
       - name: Build Debug APK
-        run: gradle assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace --no-daemon -Djava.awt.headless=true
 
       - name: Cari path APK
         id: apk
