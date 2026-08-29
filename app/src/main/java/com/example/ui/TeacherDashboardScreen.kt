@@ -50,6 +50,7 @@ fun TeacherDashboardScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showCreateClassDialog by remember { mutableStateOf(false) }
     var newClassLabel by remember { mutableStateOf("") }
+    var classToDeactivate by remember { mutableStateOf<RamadhanClass?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.initDashboard()
@@ -321,7 +322,15 @@ fun TeacherDashboardScreen(
                             FilterChip(
                                 selected = isSelected,
                                 onClick = { viewModel.setFilterClass(cls.classId) },
-                                label = { Text("Kelas ${cls.label}", fontFamily = NunitoFont) },
+                                label = { 
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Kelas ${cls.label}", fontFamily = NunitoFont)
+                                        if (!cls.isActive) {
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("(Nonaktif)", fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = GoldPrimary,
                                     selectedLabelColor = DeepNight,
@@ -329,6 +338,83 @@ fun TeacherDashboardScreen(
                                     labelColor = TextPrimary
                                 )
                             )
+                        }
+                    }
+
+                    // Card Status Kelas & Kill-Switch untuk Koordinator jika memilih kelas tertentu
+                    val filteredClass = uiState.classes.firstOrNull { it.classId == uiState.filterClassId }
+                    if (filteredClass != null) {
+                        Spacer(Modifier.height(8.dp))
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardSurface),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, if (filteredClass.isActive) CardElevated else MaterialTheme.colorScheme.error.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Kelas ${filteredClass.label} (Kode: ${filteredClass.classCode})",
+                                            fontSize = 14.sp,
+                                            fontFamily = NunitoFont,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "Status: ",
+                                                fontSize = 12.sp,
+                                                fontFamily = NunitoFont,
+                                                color = TextSecondary
+                                            )
+                                            Text(
+                                                text = if (filteredClass.isActive) "Aktif" else "Nonaktif",
+                                                fontSize = 12.sp,
+                                                fontFamily = NunitoFont,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (filteredClass.isActive) TealAccent else MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+
+                                    if (filteredClass.isActive) {
+                                        Button(
+                                            onClick = { classToDeactivate = filteredClass },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                            modifier = Modifier.testTag("deactivate_class_button_${filteredClass.classId}")
+                                        ) {
+                                            Text(
+                                                text = "Nonaktifkan",
+                                                fontSize = 12.sp,
+                                                fontFamily = NunitoFont,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(Modifier.height(8.dp))
+
+                                Text(
+                                    text = "Catatan: Hanya nonaktifkan kelas yang benar-benar mencurigakan — siswa yang sudah terdaftar tidak akan terpengaruh, tapi guru pemilik tidak bisa lagi menerima siswa baru sampai diaktifkan kembali manual lewat Firestore Console.",
+                                    fontSize = 11.sp,
+                                    fontFamily = NunitoFont,
+                                    color = TextSecondary,
+                                    lineHeight = 15.sp
+                                )
+                            }
                         }
                     }
 
@@ -478,6 +564,60 @@ fun TeacherDashboardScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showCreateClassDialog = false }) {
+                    Text("Batal", color = TextSecondary)
+                }
+            },
+            containerColor = CardSurface
+        )
+    }
+
+    // Dialog Konfirmasi Kill-Switch Koordinator
+    if (classToDeactivate != null) {
+        val targetClass = classToDeactivate!!
+        AlertDialog(
+            onDismissRequest = { classToDeactivate = null },
+            title = {
+                Text(
+                    text = "Konfirmasi Nonaktifkan Kelas",
+                    fontFamily = NunitoFont,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Apakah Anda yakin ingin menonaktifkan Kelas ${targetClass.label} (Kode: ${targetClass.classCode})?",
+                        fontSize = 14.sp,
+                        fontFamily = NunitoFont,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = "Hanya nonaktifkan kelas yang benar-benar mencurigakan — siswa yang sudah terdaftar tidak akan terpengaruh, tapi guru pemilik tidak bisa lagi menerima siswa baru sampai diaktifkan kembali manual lewat Firestore Console.",
+                        fontSize = 12.sp,
+                        fontFamily = NunitoFont,
+                        color = TextSecondary,
+                        lineHeight = 16.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val cId = targetClass.classId
+                        classToDeactivate = null
+                        viewModel.deactivateClass(cId)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("confirm_deactivate_class_button")
+                ) {
+                    Text("Nonaktifkan (Kill-Switch)", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { classToDeactivate = null }) {
                     Text("Batal", color = TextSecondary)
                 }
             },

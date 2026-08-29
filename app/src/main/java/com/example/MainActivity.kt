@@ -98,6 +98,7 @@ import id.ideahousetech.prayertime_qibla.ui.StudentLoginScreen
 import id.ideahousetech.prayertime_qibla.ui.StudentRegisterScreen
 import id.ideahousetech.prayertime_qibla.ui.StudentTaskScreen
 import id.ideahousetech.prayertime_qibla.ui.TeacherLoginScreen
+import id.ideahousetech.prayertime_qibla.ui.TeacherRegisterScreen
 import id.ideahousetech.prayertime_qibla.ui.TeacherDashboardScreen
 import id.ideahousetech.prayertime_qibla.viewmodel.StudentAuthViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.StudentTaskViewModel
@@ -193,6 +194,7 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
     RAMADHAN_STUDENT_REGISTER("Daftar Siswa", Icons.Default.School),
     RAMADHAN_STUDENT_TASK("Tugas Siswa", Icons.Default.School),
     RAMADHAN_TEACHER_LOGIN("Login Guru", Icons.Default.School),
+    RAMADHAN_TEACHER_REGISTER("Daftar Guru", Icons.Default.School),
     RAMADHAN_TEACHER_DASHBOARD("Dashboard Guru", Icons.Default.School)
 }
 
@@ -427,6 +429,12 @@ fun MainLayout(
                     AppScreen.RAMADHAN_TEACHER_LOGIN -> TeacherLoginScreen(
                         viewModel = teacherAuthViewModel,
                         onLoginSuccess = { navigateTo(AppScreen.RAMADHAN_TEACHER_DASHBOARD) },
+                        onNavigateToRegister = { navigateTo(AppScreen.RAMADHAN_TEACHER_REGISTER) },
+                        onBackClick = { navigateBack() }
+                    )
+                    AppScreen.RAMADHAN_TEACHER_REGISTER -> TeacherRegisterScreen(
+                        viewModel = teacherAuthViewModel,
+                        onRegisterSuccess = { navigateTo(AppScreen.RAMADHAN_TEACHER_LOGIN) },
                         onBackClick = { navigateBack() }
                     )
                     AppScreen.RAMADHAN_TEACHER_DASHBOARD -> TeacherDashboardScreen(

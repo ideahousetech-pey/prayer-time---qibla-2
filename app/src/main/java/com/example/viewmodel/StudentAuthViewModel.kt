@@ -120,7 +120,11 @@ class StudentAuthViewModel : ViewModel() {
     }
 
     /**
-     * Pendaftaran Siswa Baru dengan validasi Kode Kelas sebelum membuat akun Auth.
+     * Pendaftaran Siswa Baru:
+     * 1. Buat user Auth dulu agar authenticated.
+     * 2. Setelah authenticated, query collection 'classes' untuk validasi classCode (aktif & sesuai).
+     * 3. Jika kode tidak valid: panggil currentUser?.delete() untuk membatalkan akun Auth baru.
+     * 4. Jika valid: simpan dokumen 'students/{uid}'.
      */
     fun register(
         name: String,
@@ -158,14 +162,22 @@ class StudentAuthViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
         viewModelScope.launch {
+            var createdUserUid: String? = null
             try {
-                // 1. Validasi Kode Kelas ke collection 'classes' SEBELUM membuat akun
+                // 1. Buat akun Firebase Auth DULU dengan email sintetis sehingga request.auth != null
+                val syntheticEmail = createSyntheticEmail(trimmedName, classLabel)
+                val authResult = auth.createUserWithEmailAndPassword(syntheticEmail, password).await()
+                val user = authResult.user ?: throw IllegalStateException("Gagal membuat akun siswa")
+                createdUserUid = user.uid
+
+                // 2. SETELAH authenticated, baru query collection 'classes' untuk validasi classCode
                 val classQuery = firestore.collection("classes")
                     .whereEqualTo("classCode", trimmedCode)
                     .get()
                     .await()
 
                 if (classQuery.isEmpty) {
+                    user.delete().await()
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         errorMessage = "Kode kelas '$trimmedCode' tidak ditemukan. Silakan hubungi guru Anda."
@@ -179,6 +191,7 @@ class StudentAuthViewModel : ViewModel() {
                 val resolvedClassId = classDoc.id
 
                 if (!isClassActive) {
+                    user.delete().await()
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         errorMessage = "Kelas dengan kode '$trimmedCode' sedang tidak aktif."
@@ -187,6 +200,7 @@ class StudentAuthViewModel : ViewModel() {
                 }
 
                 if (!matchedClassLabel.equals(classLabel.trim(), ignoreCase = true)) {
+                    user.delete().await()
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         errorMessage = "Kode kelas '$trimmedCode' tidak cocok untuk kelas $classLabel (terdaftar untuk kelas $matchedClassLabel)."
@@ -194,21 +208,16 @@ class StudentAuthViewModel : ViewModel() {
                     return@launch
                 }
 
-                // 2. Buat akun Firebase Auth dengan email sintetis
-                val syntheticEmail = createSyntheticEmail(trimmedName, classLabel)
-                val authResult = auth.createUserWithEmailAndPassword(syntheticEmail, password).await()
-                val uid = authResult.user?.uid ?: throw IllegalStateException("Gagal membuat user UID")
-
-                // 3. Simpan data siswa ke Firestore 'students/{studentId}'
+                // 3. Jika kode valid, buat dokumen siswa di Firestore 'students/{studentId}'
                 val student = Student(
-                    studentId = uid,
+                    studentId = user.uid,
                     name = trimmedName,
                     nameLower = trimmedName.lowercase(),
                     classId = resolvedClassId,
                     createdAt = Timestamp.now()
                 )
 
-                firestore.collection("students").document(uid).set(student).await()
+                firestore.collection("students").document(user.uid).set(student).await()
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -217,6 +226,13 @@ class StudentAuthViewModel : ViewModel() {
                 )
                 onSuccess()
             } catch (e: Exception) {
+                // Rollback user Auth jika sempat terbuat tapi terjadi error sebelum tersimpan
+                if (createdUserUid != null && auth.currentUser?.uid == createdUserUid) {
+                    try {
+                        auth.currentUser?.delete()?.await()
+                    } catch (_: Exception) {}
+                }
+
                 val msg = when {
                     e.message?.contains("email-already-in-use", ignoreCase = true) == true ->
                         "Nama siswa '$trimmedName' di kelas $classLabel sudah terdaftar. Silakan login."

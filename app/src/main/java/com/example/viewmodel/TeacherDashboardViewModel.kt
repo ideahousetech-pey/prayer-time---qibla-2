@@ -328,6 +328,50 @@ class TeacherDashboardViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Kill-Switch Koordinator: Menonaktifkan kelas (isActive = false).
+     * Siswa yang sudah terdaftar tidak terpengaruh, tapi guru pemilik tidak bisa lagi menerima pendaftaran siswa baru.
+     */
+    fun deactivateClass(classId: String) {
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        viewModelScope.launch {
+            try {
+                firestore.collection("classes").document(classId)
+                    .update("isActive", false)
+                    .await()
+
+                val updatedClasses = _uiState.value.classes.map { cls ->
+                    if (cls.classId == classId) cls.copy(isActive = false) else cls
+                }
+
+                val updatedSelected = if (_uiState.value.selectedClass?.classId == classId) {
+                    _uiState.value.selectedClass?.copy(isActive = false)
+                } else {
+                    _uiState.value.selectedClass
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    classes = updatedClasses,
+                    selectedClass = updatedSelected,
+                    classCreationMessage = "Kelas berhasil dinonaktifkan."
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = "Gagal menonaktifkan kelas: ${e.localizedMessage ?: "Terjadi kesalahan"}"
+                )
+            }
+        }
+    }
+
+    fun clearMessages() {
+        _uiState.value = _uiState.value.copy(
+            errorMessage = null,
+            classCreationMessage = null
+        )
+    }
+
     fun closeStudentDetail() {
         _uiState.value = _uiState.value.copy(
             selectedStudentDetail = null,

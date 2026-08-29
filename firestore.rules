@@ -22,6 +22,16 @@ service cloud.firestore {
     }
 
     // ────────────────────────────────────────────────────────────────────────
+    // SCHOOL CONFIG COLLECTION (KODE AKTIVASI GURU & KONFIGURASI GLOBAL)
+    // Read: Terotentikasi (guru perlu membaca saat registrasi untuk validasi kode).
+    // Write: DENY (HANYA bisa diubah manual lewat Firebase Console oleh developer).
+    // ────────────────────────────────────────────────────────────────────────
+    match /schoolConfig/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
     // TEACHERS COLLECTION
     // CATATAN TEGAS SOAL KEAMANAN ROLE:
     // Field 'role' HANYA bisa diisi "guru" saat registrasi akun baru melalui client.
@@ -39,18 +49,18 @@ service cloud.firestore {
 
     // ────────────────────────────────────────────────────────────────────────
     // CLASSES COLLECTION
-    // Koordinator hanya memiliki hak READ-ONLY untuk seluruh kelas.
-    // Hak penulisan/pembaruan kelas HANYA dimiliki oleh guru pembuat kelas (isOwnerTeacherOf).
+    // Read: Terbuka untuk semua user terotentikasi (termasuk akun siswa yang baru
+    // dibuat dan perlu validasi kode kelas saat pendaftaran).
+    // Write/Update: Guru pemilik kelas ATAU Koordinator (khusus kill-switch field isActive).
     // ────────────────────────────────────────────────────────────────────────
     match /classes/{classId} {
-      allow read: if request.auth != null && (
-        isKoordinator() || 
-        isOwnerTeacherOf(classId) || 
-        (exists(/databases/$(database)/documents/students/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/students/$(request.auth.uid)).data.classId == classId)
-      );
+      allow read: if request.auth != null;
       allow create: if request.auth != null && request.resource.data.teacherId == request.auth.uid;
-      allow update, delete: if isOwnerTeacherOf(classId);
+      allow update: if isOwnerTeacherOf(classId)
+        || (isKoordinator()
+            && request.resource.data.diff(resource.data)
+               .affectedKeys().hasOnly(["isActive"]));
+      allow delete: if isOwnerTeacherOf(classId);
     }
 
     // ────────────────────────────────────────────────────────────────────────

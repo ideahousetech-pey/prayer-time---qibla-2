@@ -113,18 +113,23 @@ class TeacherAuthViewModel : ViewModel() {
     }
 
     /**
-     * Registrasi Akun Guru Baru.
-     * CATATAN: Role selalu default "guru". Role "koordinator" hanya diatur oleh developer di Firestore Console.
+     * Registrasi Akun Guru Baru dengan Kode Aktivasi Guru:
+     * 1. Buat akun Auth dulu agar authenticated (sehingga lolos rule read schoolConfig).
+     * 2. Baca dokumen 'schoolConfig/teacherActivation' dan bandingkan activationCode.
+     * 3. Jika tidak cocok: batalkan akun Auth (currentUser?.delete()) dan tampilkan pesan error khusus.
+     * 4. Jika cocok: buat dokumen 'teachers/{uid}' dengan role="guru".
      */
     fun registerTeacher(
         name: String,
         email: String,
+        activationCode: String,
         pass: String,
         confirmPass: String,
         onSuccess: () -> Unit
     ) {
         val trimmedName = name.trim()
         val trimmedEmail = email.trim()
+        val trimmedActivation = activationCode.trim()
 
         if (trimmedName.length < 3) {
             _uiState.value = _uiState.value.copy(errorMessage = "Nama lengkap minimal 3 karakter.")
@@ -132,6 +137,10 @@ class TeacherAuthViewModel : ViewModel() {
         }
         if (trimmedEmail.isEmpty() || !trimmedEmail.contains("@")) {
             _uiState.value = _uiState.value.copy(errorMessage = "Format email tidak valid.")
+            return
+        }
+        if (trimmedActivation.isEmpty()) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Kode aktivasi guru wajib diisi.")
             return
         }
         if (pass.length < 6) {
@@ -146,31 +155,57 @@ class TeacherAuthViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
         viewModelScope.launch {
+            var createdUserUid: String? = null
             try {
+                // 1. Buat akun Auth dulu sehingga request.auth != null
                 val result = auth.createUserWithEmailAndPassword(trimmedEmail, pass).await()
-                val uid = result.user?.uid ?: throw IllegalStateException("UID tidak ditemukan")
+                val user = result.user ?: throw IllegalStateException("UID tidak ditemukan")
+                createdUserUid = user.uid
 
-                // Role dikunci ke "guru" sesuai ketentuan ketat keamanan
+                // 2. Baca konfigurasi kode aktivasi guru dari 'schoolConfig/teacherActivation'
+                val configDoc = firestore.collection("schoolConfig").document("teacherActivation").get().await()
+                val storedActivationCode = configDoc.getString("activationCode")?.trim() ?: ""
+
+                // 3. Validasi kesesuaian kode aktivasi
+                if (storedActivationCode.isEmpty() || storedActivationCode != trimmedActivation) {
+                    user.delete().await()
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Kode aktivasi guru tidak valid — hubungi koordinator sekolah Anda untuk mendapatkan kode ini."
+                    )
+                    return@launch
+                }
+
+                // 4. Role dikunci ke "guru" sesuai ketentuan ketat keamanan
                 val newTeacher = Teacher(
-                    teacherId = uid,
+                    teacherId = user.uid,
                     name = trimmedName,
                     email = trimmedEmail,
                     role = Teacher.ROLE_GURU,
                     classIds = emptyList()
                 )
 
-                firestore.collection("teachers").document(uid).set(newTeacher).await()
+                firestore.collection("teachers").document(user.uid).set(newTeacher).await()
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     currentTeacher = newTeacher,
-                    successMessage = "Pendaftaran guru berhasil!"
+                    successMessage = "Pendaftaran guru berhasil! Silakan masuk ke akun Anda."
                 )
                 onSuccess()
             } catch (e: Exception) {
+                // Rollback user Auth jika sempat terbuat tapi terjadi error sebelum tersimpan
+                if (createdUserUid != null && auth.currentUser?.uid == createdUserUid) {
+                    try {
+                        auth.currentUser?.delete()?.await()
+                    } catch (_: Exception) {}
+                }
+
                 val msg = when {
                     e.message?.contains("email-already-in-use", ignoreCase = true) == true ->
                         "Email $trimmedEmail sudah terdaftar. Silakan masuk."
+                    e.message?.contains("network", ignoreCase = true) == true ->
+                        "Koneksi internet bermasalah. Periksa jaringan Anda."
                     else -> "Gagal mendaftar: ${e.localizedMessage ?: "Terjadi kesalahan"}"
                 }
                 _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = msg)

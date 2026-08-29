@@ -12,7 +12,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -35,25 +37,24 @@ import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.viewmodel.TeacherAuthViewModel
 
 /**
- * Halaman Masuk Tenaga Pendidik / Guru & Koordinator.
+ * Halaman Khusus Registrasi Guru Baru dengan Validasi Kode Aktivasi Guru.
  */
 @Composable
-fun TeacherLoginScreen(
+fun TeacherRegisterScreen(
     viewModel: TeacherAuthViewModel,
-    onLoginSuccess: () -> Unit,
-    onNavigateToRegister: () -> Unit,
+    onRegisterSuccess: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
 
+    var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var activationCode by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
-
-    var showResetDialog by remember { mutableStateOf(false) }
-    var resetEmail by remember { mutableStateOf("") }
 
     Box(
         modifier = modifier
@@ -71,7 +72,7 @@ fun TeacherLoginScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 20.dp),
+                    .padding(top = 8.dp, bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
@@ -81,7 +82,7 @@ fun TeacherLoginScreen(
                         .clip(CircleShape)
                         .background(CardSurface)
                         .border(1.dp, GoldPrimary.copy(alpha = 0.3f), CircleShape)
-                        .testTag("teacher_login_back_button")
+                        .testTag("teacher_register_back_button")
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -91,7 +92,7 @@ fun TeacherLoginScreen(
                 }
                 Spacer(Modifier.width(16.dp))
                 Text(
-                    text = "Portal Guru & Koordinator",
+                    text = "Daftar Guru Baru",
                     fontSize = 19.sp,
                     fontFamily = NunitoFont,
                     fontWeight = FontWeight.Bold,
@@ -99,10 +100,10 @@ fun TeacherLoginScreen(
                 )
             }
 
-            // Avatar Guru
+            // Avatar Pendidik
             Box(
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(68.dp)
                     .clip(CircleShape)
                     .background(GoldPrimary.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
@@ -111,14 +112,14 @@ fun TeacherLoginScreen(
                     imageVector = Icons.Filled.School,
                     contentDescription = null,
                     tint = GoldPrimary,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(36.dp)
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
 
             Text(
-                text = "Masuk Akun Pendidik",
+                text = "Registrasi Pendidik",
                 fontSize = 18.sp,
                 fontFamily = NunitoFont,
                 fontWeight = FontWeight.Bold,
@@ -126,7 +127,7 @@ fun TeacherLoginScreen(
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "Kelola kelas Anda atau pantau progres ibadah Ramadhan seluruh siswa di sekolah.",
+                text = "Daftarkan akun pendidik menggunakan kode aktivasi resmi dari koordinator sekolah.",
                 fontSize = 13.sp,
                 fontFamily = NunitoFont,
                 color = TextSecondary,
@@ -134,7 +135,7 @@ fun TeacherLoginScreen(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
 
             // Pesan Error / Sukses
             if (uiState.errorMessage != null) {
@@ -174,7 +175,34 @@ fun TeacherLoginScreen(
                 }
             }
 
-            // Form Input Email
+            // Form Input
+            OutlinedTextField(
+                value = name,
+                onValueChange = { 
+                    name = it
+                    viewModel.clearMessages()
+                },
+                label = { Text("Nama Lengkap Pendidik") },
+                leadingIcon = {
+                    Icon(Icons.Filled.Person, contentDescription = null, tint = GoldPrimary)
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GoldPrimary,
+                    unfocusedBorderColor = CardElevated,
+                    focusedLabelColor = GoldPrimary,
+                    unfocusedContainerColor = CardSurface,
+                    focusedContainerColor = CardSurface
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("teacher_register_name_input")
+            )
+
+            Spacer(Modifier.height(12.dp))
+
             OutlinedTextField(
                 value = email,
                 onValueChange = { 
@@ -200,10 +228,39 @@ fun TeacherLoginScreen(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("teacher_email_input")
+                    .testTag("teacher_register_email_input")
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
+
+            // Field WAJIB: Kode Aktivasi Guru
+            OutlinedTextField(
+                value = activationCode,
+                onValueChange = { 
+                    activationCode = it
+                    viewModel.clearMessages()
+                },
+                label = { Text("Kode Aktivasi Guru (Wajib)") },
+                placeholder = { Text("Diberikan oleh koordinator", fontSize = 12.sp, color = TextSecondary) },
+                leadingIcon = {
+                    Icon(Icons.Filled.Key, contentDescription = null, tint = GoldPrimary)
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GoldPrimary,
+                    unfocusedBorderColor = CardElevated,
+                    focusedLabelColor = GoldPrimary,
+                    unfocusedContainerColor = CardSurface,
+                    focusedContainerColor = CardSurface
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("teacher_activation_code_input")
+            )
+
+            Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = password,
@@ -227,12 +284,43 @@ fun TeacherLoginScreen(
                 visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Next
+                ),
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GoldPrimary,
+                    unfocusedBorderColor = CardElevated,
+                    focusedLabelColor = GoldPrimary,
+                    unfocusedContainerColor = CardSurface,
+                    focusedContainerColor = CardSurface
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("teacher_register_password_input")
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = confirmPassword,
+                onValueChange = { 
+                    confirmPassword = it
+                    viewModel.clearMessages()
+                },
+                label = { Text("Konfirmasi Password") },
+                leadingIcon = {
+                    Icon(Icons.Filled.Lock, contentDescription = null, tint = GoldPrimary)
+                },
+                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(
                     onDone = {
                         focusManager.clearFocus()
-                        viewModel.login(email, password, onLoginSuccess)
+                        viewModel.registerTeacher(name, email, activationCode, password, confirmPassword, onRegisterSuccess)
                     }
                 ),
                 singleLine = true,
@@ -246,38 +334,16 @@ fun TeacherLoginScreen(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("teacher_password_input")
+                    .testTag("teacher_register_confirm_password_input")
             )
 
-            // Link Lupa Password
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(
-                    onClick = {
-                        resetEmail = email
-                        showResetDialog = true
-                    }
-                ) {
-                    Text(
-                        text = "Lupa password?",
-                        fontSize = 12.sp,
-                        fontFamily = NunitoFont,
-                        color = GoldPrimary
-                    )
-                }
-            }
+            Spacer(Modifier.height(24.dp))
 
-            Spacer(Modifier.height(20.dp))
-
-            // Tombol Masuk
+            // Tombol Submit Registrasi
             Button(
                 onClick = {
                     focusManager.clearFocus()
-                    viewModel.login(email, password, onLoginSuccess)
+                    viewModel.registerTeacher(name, email, activationCode, password, confirmPassword, onRegisterSuccess)
                 },
                 enabled = !uiState.isLoading,
                 shape = RoundedCornerShape(14.dp),
@@ -285,7 +351,7 @@ fun TeacherLoginScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
-                    .testTag("teacher_submit_button")
+                    .testTag("teacher_register_submit_button")
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
@@ -295,7 +361,7 @@ fun TeacherLoginScreen(
                     )
                 } else {
                     Text(
-                        text = "Masuk ke Dashboard",
+                        text = "Daftar Akun Guru",
                         fontSize = 16.sp,
                         fontFamily = NunitoFont,
                         fontWeight = FontWeight.Bold,
@@ -306,16 +372,12 @@ fun TeacherLoginScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Navigasi ke Halaman Daftar Guru Baru
             TextButton(
-                onClick = {
-                    viewModel.clearMessages()
-                    onNavigateToRegister()
-                },
-                modifier = Modifier.testTag("teacher_toggle_mode_button")
+                onClick = onBackClick,
+                modifier = Modifier.testTag("teacher_register_to_login_button")
             ) {
                 Text(
-                    text = "Belum punya akun? Daftar Guru Baru di sini",
+                    text = "Sudah punya akun? Masuk di sini",
                     fontSize = 13.sp,
                     fontFamily = NunitoFont,
                     fontWeight = FontWeight.SemiBold,
@@ -323,56 +385,5 @@ fun TeacherLoginScreen(
                 )
             }
         }
-    }
-
-    // Dialog Reset Password
-    if (showResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            title = {
-                Text(
-                    text = "Reset Password Guru",
-                    fontFamily = NunitoFont,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        text = "Masukkan alamat email Anda untuk menerima tautan pemulihan kata sandi:",
-                        fontSize = 13.sp,
-                        fontFamily = NunitoFont,
-                        color = TextSecondary
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = resetEmail,
-                        onValueChange = { resetEmail = it },
-                        label = { Text("Email") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.sendPasswordReset(resetEmail)
-                        showResetDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary)
-                ) {
-                    Text("Kirim", color = DeepNight, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) {
-                    Text("Batal", color = TextSecondary)
-                }
-            },
-            containerColor = CardSurface
-        )
     }
 }
