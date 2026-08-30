@@ -186,7 +186,7 @@ class StudentAuthViewModel : ViewModel() {
                 }
 
                 val classDoc = classQuery.documents.first()
-                val isClassActive = classDoc.getBoolean("isActive") ?: false
+                val isClassActive = classDoc.getBoolean("active") ?: false
                 val matchedClassLabel = classDoc.getString("label") ?: ""
                 val resolvedClassId = classDoc.id
 

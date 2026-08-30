@@ -337,7 +337,7 @@ class TeacherDashboardViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 firestore.collection("classes").document(classId)
-                    .update("isActive", false)
+                    .update("active", false)
                     .await()
 
                 val updatedClasses = _uiState.value.classes.map { cls ->

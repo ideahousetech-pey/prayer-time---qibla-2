@@ -1,6 +1,7 @@
 package id.ideahousetech.prayertime_qibla.model.ramadhan
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.PropertyName
 
 /**
  * Model data Kelas Ramadhan (misal: 1A, 2A, ..., 6A).
@@ -11,6 +12,7 @@ data class RamadhanClass(
     val label: String = "",           // contoh "6A"
     val teacherId: String = "",
     val classCode: String = "",       // kode unik aktivasi siswa, mis. "6A-RMD26"
-    val isActive: Boolean = true,
+    @get:PropertyName("active") @set:PropertyName("active")
+    var isActive: Boolean = true,
     val createdAt: Timestamp = Timestamp.now()
 )

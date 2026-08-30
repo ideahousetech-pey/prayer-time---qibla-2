@@ -64,11 +64,11 @@ service cloud.firestore {
 
       allow update: if isOwnerTeacherOf(classId)
         || (isKoordinator()
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["isActive"]));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["active"]));
         // update tetap pakai isOwnerTeacherOf karena di titik ini
         // dokumennya sudah ada, get() akan berhasil.
 
-      allow delete: if isOwnerTeacherOf(classId);
+      allow delete: if false;
     }
 
     // ────────────────────────────────────────────────────────────────────────
