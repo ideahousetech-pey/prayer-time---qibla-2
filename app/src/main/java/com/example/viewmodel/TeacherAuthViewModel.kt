@@ -129,7 +129,7 @@ class TeacherAuthViewModel : ViewModel() {
     ) {
         val trimmedName = name.trim()
         val trimmedEmail = email.trim()
-        val trimmedActivation = activationCode.trim()
+        val trimmedActivation = activationCode.trim().uppercase()
 
         if (trimmedName.length < 3) {
             _uiState.value = _uiState.value.copy(errorMessage = "Nama lengkap minimal 3 karakter.")
@@ -164,7 +164,7 @@ class TeacherAuthViewModel : ViewModel() {
 
                 // 2. Baca konfigurasi kode aktivasi guru dari 'schoolConfig/teacherActivation'
                 val configDoc = firestore.collection("schoolConfig").document("teacherActivation").get().await()
-                val storedActivationCode = configDoc.getString("activationCode")?.trim() ?: ""
+                val storedActivationCode = configDoc.getString("activationCode")?.trim()?.uppercase() ?: ""
 
                 // 3. Validasi kesesuaian kode aktivasi
                 if (storedActivationCode.isEmpty() || storedActivationCode != trimmedActivation) {

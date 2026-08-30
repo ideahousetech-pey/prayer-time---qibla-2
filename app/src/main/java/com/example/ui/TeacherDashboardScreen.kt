@@ -182,6 +182,25 @@ fun TeacherDashboardScreen(
                 }
             }
 
+            if (uiState.errorMessage != null) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = uiState.errorMessage ?: "",
+                        fontSize = 12.sp,
+                        fontFamily = NunitoFont,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
+
             // Area Kontrol: Guru vs Koordinator
             if (!uiState.isKoordinator) {
                 // Peran Guru Biasa: Pemilihan & Pembuatan Kelas
@@ -533,6 +552,16 @@ fun TeacherDashboardScreen(
             },
             text = {
                 Column {
+                    if (uiState.errorMessage != null) {
+                        Text(
+                            text = uiState.errorMessage ?: "",
+                            fontSize = 12.sp,
+                            fontFamily = NunitoFont,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
                     Text(
                         text = "Masukkan nama / label kelas (misal: 6A, 5B, 1A):",
                         fontSize = 13.sp,
@@ -542,7 +571,10 @@ fun TeacherDashboardScreen(
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = newClassLabel,
-                        onValueChange = { newClassLabel = it.uppercase() },
+                        onValueChange = { 
+                            newClassLabel = it.uppercase()
+                            viewModel.clearMessages()
+                        },
                         label = { Text("Label Kelas (contoh: 6A)") },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),

@@ -55,11 +55,19 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /classes/{classId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.resource.data.teacherId == request.auth.uid;
+
+      allow create: if request.auth != null
+        && request.resource.data.teacherId == request.auth.uid;
+        // saat CREATE, dokumen belum ada — jadi validasi kepemilikan
+        // dari DATA YANG DIKIRIM (request.resource.data), bukan dari
+        // get() ke dokumen lama yang belum eksis.
+
       allow update: if isOwnerTeacherOf(classId)
         || (isKoordinator()
-            && request.resource.data.diff(resource.data)
-               .affectedKeys().hasOnly(["isActive"]));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["isActive"]));
+        // update tetap pakai isOwnerTeacherOf karena di titik ini
+        // dokumennya sudah ada, get() akan berhasil.
+
       allow delete: if isOwnerTeacherOf(classId);
     }
 
