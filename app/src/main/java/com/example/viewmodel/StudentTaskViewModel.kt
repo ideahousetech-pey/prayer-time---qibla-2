@@ -74,6 +74,7 @@ class StudentTaskViewModel : ViewModel() {
 
                 // 2. Ambil daftar Tugas (Tasks) urut berdasarkan dayIndex
                 val tasksQuery = firestore.collection("tasks")
+                    .whereEqualTo("classId", null)
                     .orderBy("dayIndex")
                     .get()
                     .await()

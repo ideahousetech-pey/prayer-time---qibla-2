@@ -206,6 +206,25 @@ fun StudentTaskScreen(
 
             Spacer(Modifier.height(8.dp))
 
+            if (uiState.errorMessage != null) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = uiState.errorMessage ?: "",
+                        fontSize = 12.sp,
+                        fontFamily = NunitoFont,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
+
             // Daftar Tugas 30 Hari
             if (uiState.isLoading) {
                 Box(

@@ -254,6 +254,22 @@ class TeacherDashboardViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
+                // Cek dulu apakah classCode ini sudah dipakai kelas lain
+                val existingQuery = firestore.collection("classes")
+                    .whereEqualTo("classCode", generatedClassCode)
+                    .get()
+                    .await()
+
+                if (!existingQuery.isEmpty) {
+                    _uiState.value = _uiState.value.copy(
+                        isCreatingClass = false,
+                        errorMessage = "Kelas dengan label '$trimmedLabel' untuk tahun ini sudah terdaftar " +
+                            "(mungkin oleh guru lain). Gunakan label berbeda, atau hubungi koordinator " +
+                            "jika ini seharusnya kelas Anda."
+                    )
+                    return@launch
+                }
+
                 val newClassDoc = firestore.collection("classes").document()
                 val ramadhanClass = RamadhanClass(
                     classId = newClassDoc.id,
