@@ -66,25 +66,42 @@ class TeacherDashboardViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
         viewModelScope.launch {
-            try {
-                // 1. Ambil profil Teacher
+            val teacher = try {
                 val teacherDoc = firestore.collection("teachers").document(currentUser.uid).get().await()
-                val teacher = teacherDoc.toObject(Teacher::class.java) ?: Teacher(
+                teacherDoc.toObject(Teacher::class.java) ?: Teacher(
                     teacherId = currentUser.uid,
                     name = currentUser.displayName ?: "Guru",
                     email = currentUser.email ?: "",
                     role = Teacher.ROLE_GURU
                 )
-                val isKoordinator = teacher.isKoordinator()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = "[Tahap 1/3] Gagal memuat profil guru: ${e.localizedMessage}"
+                )
+                return@launch
+            }
+            val isKoordinator = teacher.isKoordinator()
 
-                // 2. Ambil master data Tugas Ramadhan (Tasks)
-                val tasksSnap = firestore.collection("tasks").orderBy("dayIndex").get().await()
-                allTasksCache = tasksSnap.documents.mapNotNull { 
-                    it.toObject(RamadhanTask::class.java)?.copy(taskId = it.id) 
+            try {
+                val tasksSnap = firestore.collection("tasks")
+                    .whereEqualTo("classId", null)
+                    .orderBy("dayIndex")
+                    .get()
+                    .await()
+                allTasksCache = tasksSnap.documents.mapNotNull {
+                    it.toObject(RamadhanTask::class.java)?.copy(taskId = it.id)
                 }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = "[Tahap 2/3] Gagal memuat daftar tugas: ${e.localizedMessage}"
+                )
+                return@launch
+            }
 
-                // 3. Ambil daftar kelas yang relevan
-                val classesList = if (isKoordinator) {
+            val classesList = try {
+                if (isKoordinator) {
                     val cSnap = firestore.collection("classes").get().await()
                     cSnap.documents.mapNotNull { it.toObject(RamadhanClass::class.java)?.copy(classId = it.id) }
                 } else {
@@ -94,23 +111,23 @@ class TeacherDashboardViewModel : ViewModel() {
                         .await()
                     cSnap.documents.mapNotNull { it.toObject(RamadhanClass::class.java)?.copy(classId = it.id) }
                 }
-
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    teacher = teacher,
-                    isKoordinator = isKoordinator,
-                    classes = classesList,
-                    selectedClass = classesList.firstOrNull()
-                )
-
-                // Muat siswa awal
-                loadStudents()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = "Gagal memuat data: ${e.localizedMessage ?: "Terjadi kesalahan"}"
+                    errorMessage = "[Tahap 3/3] Gagal memuat daftar kelas: ${e.localizedMessage}"
                 )
+                return@launch
             }
+
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                teacher = teacher,
+                isKoordinator = isKoordinator,
+                classes = classesList,
+                selectedClass = classesList.firstOrNull()
+            )
+
+            loadStudents()
         }
     }
 
