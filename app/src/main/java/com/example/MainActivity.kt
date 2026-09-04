@@ -240,6 +240,11 @@ fun MainLayout(
         }
     }
 
+    fun navigateToClearingHistory(screen: AppScreen) {
+        screenHistory = emptyList()
+        currentScreen = screen
+    }
+
     // Intersepsi tombol kembali (back gesture/physical back button)
     BackHandler(enabled = currentScreen != AppScreen.SHOLAT) {
         navigateBack()
@@ -421,7 +426,7 @@ fun MainLayout(
                         viewModel = studentTaskViewModel,
                         onLogout = {
                             studentAuthViewModel.logout {
-                                navigateTo(AppScreen.RAMADHAN_ENTRY)
+                                navigateToClearingHistory(AppScreen.RAMADHAN_ENTRY)
                             }
                         },
                         onBackClick = { navigateBack() }
@@ -441,7 +446,7 @@ fun MainLayout(
                         viewModel = teacherDashboardViewModel,
                         onLogout = {
                             teacherAuthViewModel.logout {
-                                navigateTo(AppScreen.RAMADHAN_ENTRY)
+                                navigateToClearingHistory(AppScreen.RAMADHAN_ENTRY)
                             }
                         },
                         onBackClick = { navigateBack() }
