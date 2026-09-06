@@ -67,6 +67,10 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+
+  lint {
+    disable += "FullBackupContent"
+  }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
