@@ -58,6 +58,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import id.ideahousetech.prayertime_qibla.ui.theme.WarningAmber
 import id.ideahousetech.prayertime_qibla.ui.CalendarScreen
 import id.ideahousetech.prayertime_qibla.ui.DoaScreen
 import id.ideahousetech.prayertime_qibla.ui.HomeScreen
@@ -215,6 +222,9 @@ fun MainLayout(
     val teacherAuthViewModel: TeacherAuthViewModel = viewModel()
     val teacherDashboardViewModel: TeacherDashboardViewModel = viewModel()
 
+    val studentAuthUiState by studentAuthViewModel.uiState.collectAsState()
+    val teacherAuthUiState by teacherAuthViewModel.uiState.collectAsState()
+
     var showSecurityWarning by remember { mutableStateOf(AppSecurityManager.shouldShowSecurityWarning()) }
     if (showSecurityWarning) {
         SecurityWarningDialog(
@@ -321,19 +331,20 @@ fun MainLayout(
             .islamicBackground(0.04f)
     ) {
 
+        val isMainTabScreen = currentScreen in listOf(
+            AppScreen.SHOLAT,
+            AppScreen.QURAN,
+            AppScreen.TRACKER,
+            AppScreen.EXPLORE,
+            AppScreen.PROFILE
+        )
+
         Scaffold(
             containerColor = Color.Transparent,
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing),
             bottomBar = {
-                val isMainTabScreen = currentScreen in listOf(
-                    AppScreen.SHOLAT,
-                    AppScreen.QURAN,
-                    AppScreen.TRACKER,
-                    AppScreen.EXPLORE,
-                    AppScreen.PROFILE
-                )
                 if (isMainTabScreen) {
                     FloatingBottomBar(
                         currentScreen = currentScreen,
@@ -344,20 +355,92 @@ fun MainLayout(
                 }
             }
         ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
-                when (currentScreen) {
-                    AppScreen.SHOLAT -> HomeScreen(
-                        prayerViewModel = prayerViewModel,
-                        locationViewModel = locationViewModel,
-                        trackerViewModel = trackerViewModel,
-                        onNavigateToScreen = { screen ->
-                            navigateTo(screen)
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (isMainTabScreen && (studentAuthUiState.currentStudent != null || teacherAuthUiState.currentTeacher != null)) {
+                    val isStudent = studentAuthUiState.currentStudent != null
+                    val sessionName = if (isStudent) {
+                        studentAuthUiState.currentStudent?.name ?: "Siswa"
+                    } else {
+                        teacherAuthUiState.currentTeacher?.name ?: "Guru"
+                    }
+                    val roleLabel = if (isStudent) "Siswa" else "Guru"
+
+                    Surface(
+                        color = GoldPrimary.copy(alpha = 0.15f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.School,
+                                    contentDescription = null,
+                                    tint = GoldPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "Login Ramadhan: $sessionName ($roleLabel)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GoldPrimary
+                                )
+                            }
+                            TextButton(
+                                onClick = {
+                                    if (isStudent) {
+                                        studentAuthViewModel.logout {}
+                                    } else {
+                                        teacherAuthViewModel.logout {}
+                                    }
+                                }
+                            ) {
+                                Text("Logout", fontSize = 12.sp, color = WarningAmber, fontWeight = FontWeight.Bold)
+                            }
                         }
-                    )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    when (currentScreen) {
+                        AppScreen.SHOLAT -> HomeScreen(
+                            prayerViewModel = prayerViewModel,
+                            locationViewModel = locationViewModel,
+                            trackerViewModel = trackerViewModel,
+                            onNavigateToScreen = { screen ->
+                                if (screen == AppScreen.RAMADHAN_ENTRY) {
+                                    when {
+                                        studentAuthUiState.currentStudent != null ->
+                                            navigateToClearingHistory(AppScreen.RAMADHAN_STUDENT_TASK)
+                                        teacherAuthUiState.currentTeacher != null ->
+                                            navigateToClearingHistory(AppScreen.RAMADHAN_TEACHER_DASHBOARD)
+                                        else ->
+                                            navigateTo(AppScreen.RAMADHAN_ENTRY)
+                                    }
+                                } else {
+                                    navigateTo(screen)
+                                }
+                            },
+                            onRamadhanClick = {
+                                when {
+                                    studentAuthUiState.currentStudent != null ->
+                                        navigateToClearingHistory(AppScreen.RAMADHAN_STUDENT_TASK)
+                                    teacherAuthUiState.currentTeacher != null ->
+                                        navigateToClearingHistory(AppScreen.RAMADHAN_TEACHER_DASHBOARD)
+                                    else ->
+                                        navigateTo(AppScreen.RAMADHAN_ENTRY)
+                                }
+                            }
+                        )
                     AppScreen.EXPLORE -> ExploreScreen(
                         locationViewModel = locationViewModel,
                         exploreViewModel = exploreViewModel,
@@ -455,6 +538,7 @@ fun MainLayout(
             }
         }
     }
+}
 }
 
 @Composable

@@ -37,7 +37,8 @@ fun HomeScreen(
     locationViewModel: LocationViewModel,
     trackerViewModel: id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel,
     onNavigateToScreen: (AppScreen) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRamadhanClick: (() -> Unit)? = null
 ) {
     val todayGregorian by prayerViewModel.todayGregorian.collectAsState()
     val todayHijri by prayerViewModel.todayHijri.collectAsState()
@@ -91,7 +92,7 @@ fun HomeScreen(
                     locationName        = locationName,
                     isLoading           = isLoadingLoc,
                     showRamadhanFeature = showRamadhanFeature,
-                    onRamadhanClick     = { onNavigateToScreen(AppScreen.RAMADHAN_ENTRY) }
+                    onRamadhanClick     = onRamadhanClick ?: { onNavigateToScreen(AppScreen.RAMADHAN_ENTRY) }
                 )
 
                 // 2. Hero Card Waktu Sholat Berikutnya (Maksimal 180dp)
