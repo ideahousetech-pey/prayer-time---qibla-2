@@ -413,7 +413,7 @@ fun MainLayout(
                     )
                     AppScreen.RAMADHAN_STUDENT_LOGIN -> StudentLoginScreen(
                         viewModel = studentAuthViewModel,
-                        onLoginSuccess = { navigateTo(AppScreen.RAMADHAN_STUDENT_TASK) },
+                        onLoginSuccess = { navigateToClearingHistory(AppScreen.RAMADHAN_STUDENT_TASK) },
                         onNavigateToRegister = { navigateTo(AppScreen.RAMADHAN_STUDENT_REGISTER) },
                         onBackClick = { navigateBack() }
                     )
@@ -433,7 +433,7 @@ fun MainLayout(
                     )
                     AppScreen.RAMADHAN_TEACHER_LOGIN -> TeacherLoginScreen(
                         viewModel = teacherAuthViewModel,
-                        onLoginSuccess = { navigateTo(AppScreen.RAMADHAN_TEACHER_DASHBOARD) },
+                        onLoginSuccess = { navigateToClearingHistory(AppScreen.RAMADHAN_TEACHER_DASHBOARD) },
                         onNavigateToRegister = { navigateTo(AppScreen.RAMADHAN_TEACHER_REGISTER) },
                         onBackClick = { navigateBack() }
                     )
