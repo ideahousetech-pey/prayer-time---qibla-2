@@ -62,9 +62,6 @@ object AppSecurityManager {
             isRunningOnEmulator = SecurityEnvironmentChecker.isRunningOnEmulator()
             isAppIntegrityValid = AppIntegrityChecker.isSignatureValid(context)
 
-            val actualSignature = AppIntegrityChecker.getAppSignature(context)
-            Log.e(TAG, "COPY_INI_SIGNATURE_ASLI: $actualSignature")
-
             // Hitung SecurityLevel secara hierarkis
             securityLevel = when {
                 !isAppIntegrityValid -> SecurityLevel.COMPROMISED
