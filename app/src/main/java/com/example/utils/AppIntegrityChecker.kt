@@ -14,7 +14,7 @@ import java.util.Locale
 object AppIntegrityChecker {
 
     // Ganti ini dengan SHA-256 asli sertifikat rilis Anda jika sudah siap dipublikasikan
-    private const val EXPECTED_SIGNATURE = "FA:5B:C8:12:34:56:78:90:AB:CD:EF:FE:DC:BA:09:87:65:43:21:0F:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01"
+    private const val EXPECTED_SIGNATURE = "85:E7:64:14:0C:82:94:9B:43:45:90:6E:EA:DA:DE:3F:5A:2A:DD:FA:9F:4B:68:BB:80:C5:1B:5A:8C:5D:4F:EB"
     
     // Package name resmi aplikasi
     private const val EXPECTED_PACKAGE_NAME = "id.ideahousetech.prayertime_qibla"
