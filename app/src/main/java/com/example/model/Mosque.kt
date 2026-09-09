@@ -13,7 +13,8 @@ data class Mosque(
     val lon: Double,
     val distanceMeters: Double,
     val rating: Double?,
-    val isOpen: Boolean?
+    val isOpen: Boolean?,
+    val isMockData: Boolean = false
 ) {
     /**
      * Memformat jarak agar ramah pengguna (contoh: "450 m" atau "1.2 km").

@@ -479,8 +479,18 @@ fun MasjidNearbyItem(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val statusText = if (mosque.isOpen == true) "Buka" else if (mosque.isOpen == false) "Tutup" else "N/A"
-                    val statusColor = if (mosque.isOpen == true) Color(0xFF10B981) else if (mosque.isOpen == false) ErrorRed else TextMuted
+                    val statusText = when {
+                        mosque.isMockData -> "Data Simulasi"
+                        mosque.isOpen == true -> "Buka"
+                        mosque.isOpen == false -> "Tutup"
+                        else -> "OpenStreetMap"
+                    }
+                    val statusColor = when {
+                        mosque.isMockData -> WarningAmber
+                        mosque.isOpen == true -> Color(0xFF10B981)
+                        mosque.isOpen == false -> ErrorRed
+                        else -> TealAccent
+                    }
                     
                     Box(
                         modifier = Modifier
