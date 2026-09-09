@@ -64,6 +64,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.style.TextOverflow
+import id.ideahousetech.prayertime_qibla.ui.theme.TextSecondary
 import id.ideahousetech.prayertime_qibla.ui.theme.WarningAmber
 import id.ideahousetech.prayertime_qibla.ui.CalendarScreen
 import id.ideahousetech.prayertime_qibla.ui.DoaScreen
@@ -95,7 +97,11 @@ import id.ideahousetech.prayertime_qibla.ui.components.FloatingBottomBar
 import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
 import id.ideahousetech.prayertime_qibla.utils.AppConfig
 import id.ideahousetech.prayertime_qibla.utils.AppSecurityManager
+import id.ideahousetech.prayertime_qibla.utils.HijriDateUtils
+import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
 import id.ideahousetech.prayertime_qibla.ui.components.SecurityWarningDialog
+import id.ideahousetech.prayertime_qibla.ui.components.RamadhanGreetingDialog
+import id.ideahousetech.prayertime_qibla.ui.components.ZakatFitrahReminderDialog
 import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Settings
@@ -230,6 +236,40 @@ fun MainLayout(
         SecurityWarningDialog(
             securityLevel = AppSecurityManager.securityLevel,
             onDismiss = { showSecurityWarning = false }
+        )
+    }
+
+    // Popup musiman Ramadhan & Zakat Fitrah (sekali per tahun Hijriah)
+    val prefs = remember { SecurePrefs.get(context) }
+    val currentHijriYear = remember { HijriDateUtils.getCurrentHijriYear() }
+    val ramadhanGreetingKey = remember(currentHijriYear) { PrefsKeys.getRamadhanGreetingKey(currentHijriYear) }
+    val zakatReminderKey = remember(currentHijriYear) { PrefsKeys.getZakatReminderKey(currentHijriYear) }
+
+    var showRamadhanGreeting by remember {
+        mutableStateOf(
+            HijriDateUtils.isFirstDayOfRamadhan() && !prefs.getBoolean(ramadhanGreetingKey, false)
+        )
+    }
+
+    var showZakatReminder by remember {
+        mutableStateOf(
+            HijriDateUtils.isFiveDaysBeforeEidFitr() && !prefs.getBoolean(zakatReminderKey, false)
+        )
+    }
+
+    if (showRamadhanGreeting) {
+        RamadhanGreetingDialog(
+            onDismiss = {
+                prefs.edit().putBoolean(ramadhanGreetingKey, true).apply()
+                showRamadhanGreeting = false
+            }
+        )
+    } else if (showZakatReminder) {
+        ZakatFitrahReminderDialog(
+            onDismiss = {
+                prefs.edit().putBoolean(zakatReminderKey, true).apply()
+                showZakatReminder = false
+            }
         )
     }
 
@@ -376,20 +416,32 @@ fun MainLayout(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f, fill = false)
+                            ) {
                                 Icon(
                                     imageVector = Icons.Filled.School,
                                     contentDescription = null,
                                     tint = GoldPrimary,
                                     modifier = Modifier.size(16.dp)
                                 )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    text = "Login Ramadhan: $sessionName ($roleLabel)",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = GoldPrimary
-                                )
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "Assalamualaikum, $sessionName",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GoldPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "Peran: $roleLabel",
+                                        fontSize = 10.sp,
+                                        color = TextSecondary
+                                    )
+                                }
                             }
                             TextButton(
                                 onClick = {

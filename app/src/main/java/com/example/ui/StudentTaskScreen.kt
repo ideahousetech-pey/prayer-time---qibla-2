@@ -152,8 +152,15 @@ fun StudentTaskScreen(
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
+                                text = "Assalamualaikum,",
+                                fontSize = 11.sp,
+                                fontFamily = NunitoFont,
+                                fontWeight = FontWeight.SemiBold,
+                                color = GoldPrimary
+                            )
+                            Text(
                                 text = uiState.student?.name ?: "Siswa Ramadhan",
-                                fontSize = 16.sp,
+                                fontSize = 15.sp,
                                 fontFamily = NunitoFont,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary,
@@ -164,8 +171,8 @@ fun StudentTaskScreen(
                                 text = "Kelas ${uiState.studentClass?.label ?: "-"}",
                                 fontSize = 12.sp,
                                 fontFamily = NunitoFont,
-                                color = GoldPrimary,
-                                fontWeight = FontWeight.SemiBold
+                                color = GoldPrimary.copy(alpha = 0.85f),
+                                fontWeight = FontWeight.Medium
                             )
                         }
                         // Badge Progres Selesai

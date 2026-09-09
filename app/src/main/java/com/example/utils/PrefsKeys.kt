@@ -13,4 +13,11 @@ object PrefsKeys {
     const val STREAK_STRICT_MODE = "streak_strict_mode"
     const val CUSTOM_ADZAN_NAME = "custom_adzan_name"
     const val CUSTOM_ADZAN_FAJR_NAME = "custom_adzan_fajr_name"
+
+    // Flag popup musiman Ramadhan & Zakat Fitrah per tahun Hijriah
+    const val PREFIX_RAMADHAN_GREETING_SHOWN = "ramadhan_greeting_shown_"
+    const val PREFIX_ZAKAT_REMINDER_SHOWN = "zakat_reminder_shown_"
+
+    fun getRamadhanGreetingKey(hijriYear: Int): String = "$PREFIX_RAMADHAN_GREETING_SHOWN${hijriYear}H"
+    fun getZakatReminderKey(hijriYear: Int): String = "$PREFIX_ZAKAT_REMINDER_SHOWN${hijriYear}H"
 }

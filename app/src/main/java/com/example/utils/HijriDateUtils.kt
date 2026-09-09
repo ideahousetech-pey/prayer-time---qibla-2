@@ -95,8 +95,8 @@ object HijriDateUtils {
     }
 
     /**
-     * Memeriksa apakah jendela waktu fitur musiman Ramadhan aktif (H-10 s/d H+10 Ramadhan).
-     * Jendela aktif dari (1 Ramadhan - 10 hari) sampai dengan (1 Syawal + 10 hari) inklusif.
+     * Memeriksa apakah jendela waktu fitur musiman Ramadhan aktif (H-15 s/d H+15 Ramadhan).
+     * Jendela aktif dari (1 Ramadhan - 15 hari) sampai dengan (1 Syawal + 15 hari) inklusif.
      */
     fun isRamadhanFeatureWindowActive(today: LocalDate = LocalDate.now()): Boolean {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -114,8 +114,8 @@ object HijriDateUtils {
                         val awalRamadhanGregorian = LocalDate.ofEpochDay(awalRamadhanHijrah.toEpochDay())
                         val awalSyawalGregorian = LocalDate.ofEpochDay(awalSyawalHijrah.toEpochDay())
 
-                        val windowStart = awalRamadhanGregorian.minusDays(10)
-                        val windowEnd = awalSyawalGregorian.plusDays(10)
+                        val windowStart = awalRamadhanGregorian.minusDays(15)
+                        val windowEnd = awalSyawalGregorian.plusDays(15)
 
                         if (!today.isBefore(windowStart) && !today.isAfter(windowEnd)) {
                             return true
@@ -137,9 +137,100 @@ object HijriDateUtils {
             set(Calendar.DAY_OF_MONTH, today.dayOfMonth)
         }
         val hijriDate = convertToHijri(cal)
-        return (hijriDate.month == 8 && hijriDate.day >= 19) ||
+        return (hijriDate.month == 8 && hijriDate.day >= 14) ||
                 (hijriDate.month == 9) ||
-                (hijriDate.month == 10 && hijriDate.day <= 11)
+                (hijriDate.month == 10 && hijriDate.day <= 16)
+    }
+
+    /**
+     * Memeriksa apakah hari ini persis tanggal 1 Ramadhan (hari pertama puasa).
+     */
+    fun isFirstDayOfRamadhan(today: LocalDate = LocalDate.now()): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val currentHijrah = HijrahDate.from(today)
+                val currentHijriYear = currentHijrah.get(ChronoField.YEAR)
+                val yearsToCheck = listOf(currentHijriYear, currentHijriYear + 1, currentHijriYear - 1)
+                for (year in yearsToCheck) {
+                    try {
+                        val awalRamadhanHijrah = HijrahDate.of(year, 9, 1)
+                        val awalRamadhanGregorian = LocalDate.ofEpochDay(awalRamadhanHijrah.toEpochDay())
+                        if (today == awalRamadhanGregorian) {
+                            return true
+                        }
+                    } catch (_: Throwable) {
+                        // Coba tahun berikutnya jika gagal
+                    }
+                }
+                return false
+            } catch (t: Throwable) {
+                android.util.Log.e("HijriDateUtils", "Gagal memproses isFirstDayOfRamadhan: ${t.message}")
+            }
+        }
+
+        // Fallback untuk perangkat API rendah
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, today.year)
+            set(Calendar.MONTH, today.monthValue - 1)
+            set(Calendar.DAY_OF_MONTH, today.dayOfMonth)
+        }
+        val hijriDate = convertToHijri(cal)
+        return hijriDate.month == 9 && hijriDate.day == 1
+    }
+
+    /**
+     * Memeriksa apakah hari ini persis 5 hari sebelum 1 Syawal / Idul Fitri (H-5 Idul Fitri).
+     */
+    fun isFiveDaysBeforeEidFitr(today: LocalDate = LocalDate.now()): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val currentHijrah = HijrahDate.from(today)
+                val currentHijriYear = currentHijrah.get(ChronoField.YEAR)
+                val yearsToCheck = listOf(currentHijriYear, currentHijriYear + 1, currentHijriYear - 1)
+                for (year in yearsToCheck) {
+                    try {
+                        val awalSyawalHijrah = HijrahDate.of(year, 10, 1)
+                        val awalSyawalGregorian = LocalDate.ofEpochDay(awalSyawalHijrah.toEpochDay())
+                        if (today == awalSyawalGregorian.minusDays(5)) {
+                            return true
+                        }
+                    } catch (_: Throwable) {
+                        // Coba tahun berikutnya jika gagal
+                    }
+                }
+                return false
+            } catch (t: Throwable) {
+                android.util.Log.e("HijriDateUtils", "Gagal memproses isFiveDaysBeforeEidFitr: ${t.message}")
+            }
+        }
+
+        // Fallback untuk perangkat API rendah
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, today.year)
+            set(Calendar.MONTH, today.monthValue - 1)
+            set(Calendar.DAY_OF_MONTH, today.dayOfMonth)
+        }
+        val hijriDate = convertToHijri(cal)
+        return hijriDate.month == 9 && (hijriDate.day in 24..25)
+    }
+
+    /**
+     * Mendapatkan tahun Hijriah saat ini secara aman.
+     */
+    fun getCurrentHijriYear(today: LocalDate = LocalDate.now()): Int {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                return HijrahDate.from(today).get(ChronoField.YEAR)
+            } catch (_: Throwable) {
+                // Gunakan fallback jika terjadi kesalahan
+            }
+        }
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, today.year)
+            set(Calendar.MONTH, today.monthValue - 1)
+            set(Calendar.DAY_OF_MONTH, today.dayOfMonth)
+        }
+        return convertToHijri(cal).year
     }
 
     /**

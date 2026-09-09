@@ -106,10 +106,12 @@ fun TeacherDashboardScreen(
                         color = TextPrimary
                     )
                     Text(
-                        text = uiState.teacher?.name ?: "Pendidik",
+                        text = "Assalamualaikum, ${uiState.teacher?.name ?: "Pendidik"}",
                         fontSize = 12.sp,
                         fontFamily = NunitoFont,
-                        color = GoldPrimary
+                        color = GoldPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 

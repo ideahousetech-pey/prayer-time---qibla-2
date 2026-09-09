@@ -21,7 +21,6 @@ import kotlinx.coroutines.tasks.await
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.Calendar
 
 data class StudentProgressSummary(
     val student: Student,
@@ -237,7 +236,7 @@ class TeacherDashboardViewModel : ViewModel() {
 
     /**
      * Membuat Kelas Baru oleh Guru (contoh: "6A")
-     * Format kode aktivasi unik: "{label}-RMD{2 digit tahun}" (misal "6A-RMD26")
+     * Format kode aktivasi unik: "{label}-KRAMAT08" (misal "6A-KRAMAT08")
      */
     fun createClass(label: String, onSuccess: () -> Unit) {
         val trimmedLabel = label.trim().uppercase()
@@ -247,8 +246,7 @@ class TeacherDashboardViewModel : ViewModel() {
         }
 
         val currentUser = auth.currentUser ?: return
-        val year2Digit = Calendar.getInstance().get(Calendar.YEAR).toString().takeLast(2)
-        val generatedClassCode = "$trimmedLabel-RMD$year2Digit"
+        val generatedClassCode = "$trimmedLabel-KRAMAT08"
 
         _uiState.value = _uiState.value.copy(isCreatingClass = true, errorMessage = null)
 
@@ -263,7 +261,7 @@ class TeacherDashboardViewModel : ViewModel() {
                 if (!existingQuery.isEmpty) {
                     _uiState.value = _uiState.value.copy(
                         isCreatingClass = false,
-                        errorMessage = "Kelas dengan label '$trimmedLabel' untuk tahun ini sudah terdaftar " +
+                        errorMessage = "Kelas dengan label '$trimmedLabel' sudah terdaftar " +
                             "(mungkin oleh guru lain). Gunakan label berbeda, atau hubungi koordinator " +
                             "jika ini seharusnya kelas Anda."
                     )
