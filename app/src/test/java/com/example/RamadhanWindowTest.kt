@@ -75,4 +75,34 @@ class RamadhanWindowTest {
         assertFalse("H-6 Idul Fitri harus bernilai false", HijriDateUtils.isFiveDaysBeforeEidFitr(hMinus5Eid.minusDays(1)))
         assertFalse("H-4 Idul Fitri harus bernilai false", HijriDateUtils.isFiveDaysBeforeEidFitr(hMinus5Eid.plusDays(1)))
     }
+
+    @Test
+    fun `test Nisfu Syaban holiday and Gregorian date calculation`() {
+        val holiday = HijriDateUtils.checkHoliday(15, 8)
+        assertNotNull("Nisfu Sya'ban harus ditemukan di daftar hari besar", holiday)
+        assertEquals("Nisfu Sya'ban", holiday?.name)
+        assertEquals("15-08", holiday?.hijriDate)
+
+        val currentYear = HijriDateUtils.getCurrentHijriYear()
+        for (year in listOf(1447, 1448, currentYear).distinct()) {
+            val nisfuSyabanHijrah = HijrahDate.of(year, 8, 15)
+            val awalRamadhanHijrah = HijrahDate.of(year, 9, 1)
+
+            val nisfuSyabanGregorian = LocalDate.ofEpochDay(nisfuSyabanHijrah.toEpochDay())
+            val awalRamadhanGregorian = LocalDate.ofEpochDay(awalRamadhanHijrah.toEpochDay())
+
+            val daysDiff = java.time.temporal.ChronoUnit.DAYS.between(nisfuSyabanGregorian, awalRamadhanGregorian)
+            println("=== GREGORIAN CHECK: TAHUN $year H ===")
+            println("15 Sya'ban $year H: $nisfuSyabanGregorian")
+            println("1 Ramadhan $year H: $awalRamadhanGregorian")
+            println("Selisih hari: $daysDiff hari (konsisten dengan H-15 jendela Ramadhan)")
+            assertTrue("15 Sya'ban harus jatuh di sekitar 15 hari sebelum 1 Ramadhan", daysDiff in 14..16)
+        }
+        // Pastikan untuk tahun 1447 H, 15 Sya'ban jatuh tepat H-15 sebelum 1 Ramadhan (2026-02-03 vs 2026-02-18)
+        val nisfu1447 = LocalDate.ofEpochDay(HijrahDate.of(1447, 8, 15).toEpochDay())
+        val ramadhan1447 = LocalDate.ofEpochDay(HijrahDate.of(1447, 9, 1).toEpochDay())
+        assertEquals(15L, java.time.temporal.ChronoUnit.DAYS.between(nisfu1447, ramadhan1447))
+        assertEquals(LocalDate.of(2026, 2, 3), nisfu1447)
+        assertEquals(LocalDate.of(2026, 2, 18), ramadhan1447)
+    }
 }

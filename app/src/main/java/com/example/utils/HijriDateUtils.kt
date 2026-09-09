@@ -44,6 +44,11 @@ object HijriDateUtils {
             "QS. Al-Isra': 1: \"Maha Suci Allah, yang telah memperjalankan hamba-Nya pada suatu malam dari Al Masjidil Haram ke Al Masjidil Aqsha...\" Shalat lima waktu adalah tiang agama dan bentuk komunikasi termulia antara seorang hamba dengan Sang Pencipta."
         ),
         IslamicHoliday(
+            "15-08",
+            "Nisfu Sya'ban",
+            "Malam pertengahan bulan Sya'ban, menjelang Ramadhan. Sebagian umat Islam mengisi malam ini dengan memperbanyak dzikir, doa, dan introspeksi diri sebagai persiapan menyambut bulan suci Ramadhan. Terdapat perbedaan pandangan di kalangan ulama mengenai amalan khusus pada malam ini — silakan merujuk pada bimbingan ustadz/guru agama setempat."
+        ),
+        IslamicHoliday(
             "01-09", 
             "Awal Puasa Ramadhan", 
             "Memulai ibadah puasa wajib sebulan penuh, tarawih, tadarus Al-Qur'an dan zakat fitrah.",
