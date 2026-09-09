@@ -2,6 +2,7 @@ package id.ideahousetech.prayertime_qibla.ui
 
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,8 +18,12 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import id.ideahousetech.prayertime_qibla.utils.VerseAudioPlayerManager
+import id.ideahousetech.prayertime_qibla.utils.VersePlaybackState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +64,30 @@ fun QuranScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedSurah by remember { mutableStateOf<QuranSurah?>(null) }
     
+    // Audio Player Manager untuk tilawah murottal per ayat
+    val audioPlayer = remember { VerseAudioPlayerManager() }
+    var currentPlayingVerse by remember { mutableStateOf<Int?>(null) }
+    var playbackState by remember { mutableStateOf(VersePlaybackState.IDLE) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            audioPlayer.release()
+        }
+    }
+
+    LaunchedEffect(selectedSurah?.number) {
+        audioPlayer.stop()
+        currentPlayingVerse = null
+        playbackState = VersePlaybackState.IDLE
+    }
+
+    BackHandler(enabled = selectedSurah != null) {
+        audioPlayer.stop()
+        currentPlayingVerse = null
+        playbackState = VersePlaybackState.IDLE
+        selectedSurah = null
+    }
+    
     val sharedPrefs = remember { context.getSharedPreferences("quran_bookmarks", Context.MODE_PRIVATE) }
     var bookmarkedSurahNumber by remember { mutableStateOf(sharedPrefs.getInt("bookmarked_surah", -1)) }
 
@@ -98,7 +127,10 @@ fun QuranScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     IconButton(
-                        onClick = onBackClick,
+                        onClick = {
+                            audioPlayer.stop()
+                            onBackClick()
+                        },
                         modifier = Modifier
                             .size(36.dp)
                             .background(CardSurface, CircleShape)
@@ -256,7 +288,12 @@ fun QuranScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = { selectedSurah = null },
+                        onClick = {
+                            audioPlayer.stop()
+                            currentPlayingVerse = null
+                            playbackState = VersePlaybackState.IDLE
+                            selectedSurah = null
+                        },
                         modifier = Modifier
                             .size(36.dp)
                             .background(CardSurface, CircleShape)
@@ -420,8 +457,38 @@ fun QuranScreen(
                                 .weight(1f),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(versesList) { verse ->
-                                VerseItemCard(verse = verse)
+                            items(versesList, key = { it.verseNumber }) { verse ->
+                                val isPlayingThis = currentPlayingVerse == verse.verseNumber && playbackState == VersePlaybackState.PLAYING
+                                val isLoadingThis = currentPlayingVerse == verse.verseNumber && playbackState == VersePlaybackState.LOADING
+                                VerseItemCard(
+                                    verse = verse,
+                                    isPlaying = isPlayingThis,
+                                    isLoading = isLoadingThis,
+                                    onPlayClick = {
+                                        if (isPlayingThis || isLoadingThis) {
+                                            audioPlayer.stop()
+                                            currentPlayingVerse = null
+                                            playbackState = VersePlaybackState.IDLE
+                                        } else {
+                                            currentPlayingVerse = verse.verseNumber
+                                            audioPlayer.play(
+                                                surahNumber = activeSurah.number,
+                                                verseNumber = verse.verseNumber,
+                                                onStateChanged = { newState ->
+                                                    playbackState = newState
+                                                    if (newState == VersePlaybackState.IDLE || newState == VersePlaybackState.ERROR) {
+                                                        if (currentPlayingVerse == verse.verseNumber) {
+                                                            currentPlayingVerse = null
+                                                        }
+                                                    }
+                                                },
+                                                onError = { errorMessage ->
+                                                    Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                        }
+                                    }
+                                )
                             }
                         }
                     }
@@ -518,44 +585,101 @@ fun SurahListItemCard(
 
 @Composable
 fun VerseItemCard(
-    verse: QuranVerse
+    verse: QuranVerse,
+    isPlaying: Boolean = false,
+    isLoading: Boolean = false,
+    onPlayClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, DividerLine, RoundedCornerShape(14.dp)),
+            .border(
+                width = if (isPlaying) 1.5.dp else 1.dp,
+                color = if (isPlaying) GoldPrimary else DividerLine,
+                shape = RoundedCornerShape(14.dp)
+            ),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = CardSurface)
+        colors = CardDefaults.cardColors(
+            containerColor = if (isPlaying) CardElevated else CardSurface
+        )
     ) {
         Column(
             modifier = Modifier.padding(14.dp)
         ) {
-            // Header: Nomor Ayat
+            // Header: Nomor Ayat & Tombol Audio Murottal
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(GoldGlow, CircleShape)
-                        .border(1.dp, GoldPrimary, CircleShape),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .background(if (isPlaying) GoldPrimary else GoldGlow, CircleShape)
+                            .border(1.dp, GoldPrimary, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = verse.verseNumber.toString(),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isPlaying) DeepNight else GoldPrimary
+                        )
+                    }
+
                     Text(
-                        text = verse.verseNumber.toString(),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = GoldPrimary
+                        text = "Ayat ${verse.verseNumber}",
+                        fontSize = 11.sp,
+                        fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isPlaying) GoldPrimary else TextSecondary
                     )
                 }
-                
-                Text(
-                    text = "Ayat ${verse.verseNumber}",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
+
+                // Tombol Play / Stop Audio Murottal
+                IconButton(
+                    onClick = onPlayClick,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(
+                            color = if (isPlaying) GoldPrimary.copy(alpha = 0.2f) else CardElevated,
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = if (isPlaying) GoldPrimary else DividerLine,
+                            shape = CircleShape
+                        )
+                ) {
+                    when {
+                        isLoading -> {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = GoldPrimary
+                            )
+                        }
+                        isPlaying -> {
+                            Icon(
+                                imageVector = Icons.Default.Stop,
+                                contentDescription = "Hentikan Murottal Ayat ${verse.verseNumber}",
+                                tint = GoldPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        else -> {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Putar Murottal Ayat ${verse.verseNumber}",
+                                tint = GoldPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
