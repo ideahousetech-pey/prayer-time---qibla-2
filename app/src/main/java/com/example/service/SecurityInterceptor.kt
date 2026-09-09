@@ -24,14 +24,8 @@ class SecurityInterceptor : Interceptor {
             throw SecurityException(errorMsg)
         }
 
-        // 2. Tambahkan Security Headers ke Request
+        // 2. Tambahkan Request Headers yang sesuai (User-Agent standar)
         val securedRequest = originalRequest.newBuilder()
-            .header("X-Content-Type-Options", "nosniff")
-            .header("X-Frame-Options", "DENY")
-            .header("X-XSS-Protection", "1; mode=block")
-            .header("Content-Security-Policy", "default-src 'none'")
-            .header("Strict-Transport-Security", "max-age=31536000; includeSubdomains")
-            // Menyertakan User-Agent yang aman dan standar untuk otentikasi
             .header("User-Agent", "JadwalSholatKiblatSecureAndroidClient/2026")
             .build()
 
@@ -41,7 +35,26 @@ class SecurityInterceptor : Interceptor {
         try {
             response = chain.proceed(securedRequest)
         } catch (e: Exception) {
-            logSecurityError("Koneksi gagal atau terindikasi SSL Handshake Tampering: ${e.message}")
+            when (e) {
+                is java.net.SocketTimeoutException -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.w("SecurityInterceptor", "⏱️ [TIMEOUT] Koneksi ke ${securedRequest.url.host} timeout: ${e.message}")
+                    }
+                }
+                is java.net.ConnectException, is java.net.UnknownHostException -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.w("SecurityInterceptor", "🔌 [OFFLINE/UNREACHABLE] Host ${securedRequest.url.host} tidak dapat dihubungi: ${e.message}")
+                    }
+                }
+                is javax.net.ssl.SSLException -> {
+                    logSecurityError("Koneksi gagal atau terindikasi masalah SSL/TLS: ${e.message}")
+                }
+                else -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.w("SecurityInterceptor", "Koneksi terputus ke ${securedRequest.url.host}: ${e.message}")
+                    }
+                }
+            }
             throw e
         }
 

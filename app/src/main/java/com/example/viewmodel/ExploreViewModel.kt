@@ -27,7 +27,7 @@ class ExploreViewModel(
     private val _mosqueState = MutableStateFlow<MosqueUiState>(MosqueUiState.Idle)
     val mosqueState: StateFlow<MosqueUiState> = _mosqueState.asStateFlow()
 
-    private val _searchRadius = MutableStateFlow(3000) // Default radius 3000 meter
+    private val _searchRadius = MutableStateFlow(2000) // Default radius 2000 meter
     val searchRadius: StateFlow<Int> = _searchRadius.asStateFlow()
 
     private var lastSearchTime = 0L
@@ -98,8 +98,8 @@ class ExploreViewModel(
      */
     fun expandSearchRadius(lat: Double, lon: Double) {
         val currentRadius = _searchRadius.value
-        if (currentRadius < 10000) {
-            _searchRadius.value = currentRadius + 2000
+        if (currentRadius < 2000) {
+            _searchRadius.value = 2000
             Log.i("ExploreViewModel", "Mengekspansi radius ke ${_searchRadius.value} meter")
             searchMosques(lat, lon, forceRefresh = true)
         }
@@ -109,7 +109,7 @@ class ExploreViewModel(
      * Mengulang pencarian terakhir secara paksa (force refresh).
      */
     fun retry(lat: Double, lon: Double) {
-        _searchRadius.value = 3000 // Reset ke default
+        _searchRadius.value = 2000 // Reset ke default
         searchMosques(lat, lon, forceRefresh = true)
     }
 

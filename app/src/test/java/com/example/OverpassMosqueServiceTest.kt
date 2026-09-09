@@ -10,7 +10,12 @@ import id.ideahousetech.prayertime_qibla.service.dto.OverpassResponse
 import id.ideahousetech.prayertime_qibla.service.dto.OverpassTags
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
 class OverpassMosqueServiceTest {
 
     private val mosqueService = MosqueService()
@@ -121,5 +126,17 @@ class OverpassMosqueServiceTest {
         assertFalse(mosqueService.isValidCoordinate(0.0, 0.0))
         assertFalse(mosqueService.isValidCoordinate(95.0, 106.8166))
         assertFalse(mosqueService.isValidCoordinate(-6.2000, 185.0))
+    }
+
+    @Test
+    fun testResultLimitedToTop5Closest() = kotlinx.coroutines.runBlocking {
+        val result = mosqueService.searchNearbyMosques(-6.2000, 106.8166, 2000)
+        assertTrue("Result size should be <= 5, actual: ${result.size}", result.size in 1..5)
+        for (i in 0 until result.size - 1) {
+            assertTrue(
+                "Results must be sorted by distance: ${result[i].distanceMeters} <= ${result[i+1].distanceMeters}",
+                result[i].distanceMeters <= result[i+1].distanceMeters
+            )
+        }
     }
 }

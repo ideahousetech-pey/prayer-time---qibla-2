@@ -24,10 +24,12 @@ import kotlin.math.*
 class MosqueService {
 
     // --- Overpass API Configuration ---
+    // Mengutamakan mirror berkinerja tinggi (lz4 & z) sebelum mirror utama
     private val overpassBaseUrls = listOf(
+        "https://lz4.overpass-api.de/",
+        "https://z.overpass-api.de/",
         "https://overpass-api.de/",
-        "https://overpass.kumi.systems/",
-        "https://overpass.openstreetmap.ru/"
+        "https://overpass.kumi.systems/"
     )
 
     private val overpassMoshi = Moshi.Builder()
@@ -35,8 +37,8 @@ class MosqueService {
         .build()
 
     private val overpassOkHttpClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
         .addInterceptor(SecurityInterceptor())
         .addInterceptor(HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
@@ -51,6 +53,8 @@ class MosqueService {
             .build()
             .create(OverpassApi::class.java)
     }
+
+    private var wasLastOverpassCallSuccessful = false
 
     // --- Google Places API Configuration (Legacy/Cadangan) ---
     private val googleApi: GooglePlacesApi
@@ -86,47 +90,54 @@ class MosqueService {
      * Alur:
      * 1. Coba pencarian dengan OpenStreetMap Overpass API (gratis tanpa API key).
      * 2. Jika hasil kosong atau semua base URL gagal/timeout, fallback ke Mock Data.
+     * 3. Radius dibatasi maksimal 2000m dan hasil dibatasi maksimal 5 masjid terdekat.
      */
-    suspend fun searchNearbyMosques(lat: Double, lon: Double, initialRadius: Int = 3000): List<Mosque> {
+    suspend fun searchNearbyMosques(lat: Double, lon: Double, initialRadius: Int = 2000): List<Mosque> {
         if (!isValidCoordinate(lat, lon)) {
             Log.e("MosqueService", "Koordinat tidak valid: $lat, $lon")
             return emptyList()
         }
 
+        // Batas maksimal radius adalah 2000 meter
+        val clampedRadius = initialRadius.coerceAtMost(2000)
+
         try {
             // 1. Coba cari masjid menggunakan OpenStreetMap Overpass API
-            val overpassResults = searchNearbyMosquesOverpass(lat, lon, initialRadius)
+            wasLastOverpassCallSuccessful = false
+            val overpassResults = searchNearbyMosquesOverpass(lat, lon, clampedRadius)
             if (overpassResults.isNotEmpty()) {
-                return overpassResults
+                return overpassResults.take(5)
             }
 
-            // Jika radius awal (3000m) tidak menghasilkan apa-apa di Overpass, coba auto-expand ke 6000m
-            if (initialRadius < 6000) {
-                Log.i("MosqueService", "Mencoba ekspansi radius Overpass ke 6000m")
-                val expandedResults = searchNearbyMosquesOverpass(lat, lon, 6000)
+            // Jika server Overpass berhasil merespons tetapi hasilnya kosong dan radius awal < 2000m, coba expand ke batas maksimal 2000m
+            if (wasLastOverpassCallSuccessful && clampedRadius < 2000) {
+                Log.i("MosqueService", "Mencoba ekspansi radius Overpass ke batas maksimal 2000m")
+                val expandedResults = searchNearbyMosquesOverpass(lat, lon, 2000)
                 if (expandedResults.isNotEmpty()) {
-                    return expandedResults
+                    return expandedResults.take(5)
                 }
             }
         } catch (e: Exception) {
             Log.e("MosqueService", "Exception saat eksekusi Overpass API: ${e.message}", e)
         }
 
-        // 2. Jika Overpass kosong atau gagal pada semua server, aktifkan Fallback Mock Data
+        // 2. Jika Overpass kosong atau gagal pada semua server, aktifkan Fallback Mock Data (dibatasi 5 terdekat)
         Log.i("MosqueService", "Overpass kosong atau gagal di semua server, mengaktifkan Fallback Mock Data")
-        return generateMockMosques(lat, lon)
+        return generateMockMosques(lat, lon).take(5)
     }
 
     /**
      * Mencari masjid menggunakan OpenStreetMap Overpass API dengan dukungan failover antar-server.
+     * Dibatasi maksimal 5 masjid terdekat berdasarkan jarak Haversine.
      */
     suspend fun searchNearbyMosquesOverpass(lat: Double, lon: Double, radiusMeters: Int): List<Mosque> {
+        val safeRadius = radiusMeters.coerceAtMost(2000)
         // Overpass QL query: mencari node dan way dengan amenity=place_of_worship & religion=muslim
         val query = String.format(
             Locale.US,
-            "[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"](around:%d,%.6f,%.6f);way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"](around:%d,%.6f,%.6f););out center;",
-            radiusMeters, lat, lon,
-            radiusMeters, lat, lon
+            "[out:json][timeout:12];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"](around:%d,%.6f,%.6f);way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"](around:%d,%.6f,%.6f););out center;",
+            safeRadius, lat, lon,
+            safeRadius, lat, lon
         )
 
         for (baseUrl in overpassBaseUrls) {
@@ -134,6 +145,7 @@ class MosqueService {
                 Log.d("MosqueService", "Mencoba query Overpass API ke: $baseUrl")
                 val api = overpassApiClients[baseUrl] ?: continue
                 val response = api.query(query)
+                wasLastOverpassCallSuccessful = true
                 val elements = response.elements ?: emptyList()
 
                 val mosques = elements.mapNotNull { element ->
@@ -170,7 +182,7 @@ class MosqueService {
                         isOpen = null,
                         isMockData = false
                     )
-                }.sortedBy { it.distanceMeters }
+                }.sortedBy { it.distanceMeters }.take(5)
 
                 if (mosques.isNotEmpty()) {
                     Log.i("MosqueService", "Berhasil mendapatkan ${mosques.size} masjid dari Overpass ($baseUrl)")
@@ -268,7 +280,7 @@ class MosqueService {
                 isOpen = place.openingHours?.openNow,
                 isMockData = false
             )
-        }.sortedBy { it.distanceMeters }
+        }.sortedBy { it.distanceMeters }.take(5)
     }
 
     /**
@@ -328,6 +340,6 @@ class MosqueService {
                 isOpen = index % 2 == 0, // Selang-seling buka / tutup
                 isMockData = true
             )
-        }.sortedBy { it.distanceMeters }
+        }.sortedBy { it.distanceMeters }.take(5)
     }
 }
