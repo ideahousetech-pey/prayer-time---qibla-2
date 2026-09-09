@@ -148,6 +148,29 @@ object HijriDateUtils {
     }
 
     /**
+     * Memeriksa apakah saat ini berada di dalam bulan suci Ramadhan (Bulan ke-9 Hijriah).
+     */
+    fun isCurrentlyRamadhan(today: LocalDate = LocalDate.now()): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val currentHijrah = HijrahDate.from(today)
+                return currentHijrah.get(ChronoField.MONTH_OF_YEAR) == 9
+            } catch (t: Throwable) {
+                android.util.Log.e("HijriDateUtils", "Gagal memproses isCurrentlyRamadhan: ${t.message}")
+            }
+        }
+
+        // Fallback untuk perangkat API rendah
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, today.year)
+            set(Calendar.MONTH, today.monthValue - 1)
+            set(Calendar.DAY_OF_MONTH, today.dayOfMonth)
+        }
+        val hijriDate = convertToHijri(cal)
+        return hijriDate.month == 9
+    }
+
+    /**
      * Memeriksa apakah hari ini persis tanggal 1 Ramadhan (hari pertama puasa).
      */
     fun isFirstDayOfRamadhan(today: LocalDate = LocalDate.now()): Boolean {

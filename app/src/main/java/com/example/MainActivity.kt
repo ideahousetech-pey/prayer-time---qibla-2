@@ -559,6 +559,7 @@ fun MainLayout(
                     )
                     AppScreen.RAMADHAN_STUDENT_TASK -> StudentTaskScreen(
                         viewModel = studentTaskViewModel,
+                        todayPrayerTime = prayerViewModel.todaySchedule.collectAsState().value,
                         onLogout = {
                             studentAuthViewModel.logout {
                                 navigateToClearingHistory(AppScreen.RAMADHAN_ENTRY)

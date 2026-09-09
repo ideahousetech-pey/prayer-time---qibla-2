@@ -15,7 +15,8 @@ data class PrayerTime(
     val dhuhr: String,              // Dzuhur: "12:00"
     val asr: String,                // Ashar: "15:15"
     val maghrib: String,            // Maghrib: "18:05"
-    val isha: String                // Isya: "19:15"
+    val isha: String,               // Isya: "19:15"
+    val imsak: String = ""          // Imsak: "04:25"
 )
 
 /**

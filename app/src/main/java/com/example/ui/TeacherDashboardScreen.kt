@@ -706,7 +706,7 @@ private fun StudentRowCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "Kelas ${summary.classLabel}  •  ${summary.completedCount}/${summary.eligibleDayCount} hari selesai",
+                    text = "Kelas ${summary.classLabel}  •  ${summary.completedCount}/${summary.eligibleDayCount} ibadah tercatat",
                     fontSize = 12.sp,
                     fontFamily = NunitoFont,
                     color = if (summary.completedCount > 0) TealAccent else TextSecondary

@@ -1,5 +1,6 @@
 package id.ideahousetech.prayertime_qibla.ui
 
+import id.ideahousetech.prayertime_qibla.utils.HijriDateUtils
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -421,13 +422,17 @@ fun TodayPrayerTimesRow(
     todaySchedule  : PrayerTime?,
     nextPrayerName : String
 ) {
-    val prayers = listOf(
-        "Subuh" to (todaySchedule?.fajr    ?: "--:--"),
-        "Dzuhur" to (todaySchedule?.dhuhr   ?: "--:--"),
-        "Ashar" to (todaySchedule?.asr     ?: "--:--"),
-        "Maghrib" to (todaySchedule?.maghrib ?: "--:--"),
-        "Isya" to (todaySchedule?.isha    ?: "--:--")
-    )
+    val isRamadhan = remember { HijriDateUtils.isCurrentlyRamadhan() }
+    val prayers = buildList {
+        if (isRamadhan) {
+            add("Imsak" to (todaySchedule?.imsak?.ifEmpty { null } ?: "--:--"))
+        }
+        add("Subuh" to (todaySchedule?.fajr    ?: "--:--"))
+        add("Dzuhur" to (todaySchedule?.dhuhr   ?: "--:--"))
+        add("Ashar" to (todaySchedule?.asr     ?: "--:--"))
+        add("Maghrib" to (todaySchedule?.maghrib ?: "--:--"))
+        add("Isya" to (todaySchedule?.isha    ?: "--:--"))
+    }
 
     IslamicGlassCard(
         modifier = Modifier

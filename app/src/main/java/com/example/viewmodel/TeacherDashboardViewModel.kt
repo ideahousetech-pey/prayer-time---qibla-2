@@ -190,7 +190,7 @@ class TeacherDashboardViewModel : ViewModel() {
                 // Ambil kelas map untuk label
                 val classMap = state.classes.associateBy { it.classId }
 
-                // Hitung progres masing-masing siswa
+                // Hitung progres masing-masing siswa (6 waktu ibadah per hari)
                 val today = LocalDate.now(wibZoneId)
                 val eligibleDaysCount = allTasksCache.count { task ->
                     val taskLocalDate = Instant.ofEpochMilli(task.taskDate.toDate().time)
@@ -198,6 +198,7 @@ class TeacherDashboardViewModel : ViewModel() {
                         .toLocalDate()
                     !taskLocalDate.isAfter(today)
                 }.coerceAtLeast(1)
+                val eligibleItemsCount = (eligibleDaysCount * 6).coerceAtLeast(1)
 
                 val progressSummaries = studentsList.map { student ->
                     // Ambil pengumpulan tugas siswa
@@ -215,7 +216,7 @@ class TeacherDashboardViewModel : ViewModel() {
                         student = student,
                         classLabel = classLabel,
                         completedCount = finishedCount,
-                        eligibleDayCount = eligibleDaysCount
+                        eligibleDayCount = eligibleItemsCount
                     )
                 }
 
@@ -318,10 +319,22 @@ class TeacherDashboardViewModel : ViewModel() {
                     .get()
                     .await()
 
-                val subsMap = subSnap.documents.mapNotNull {
-                    val s = it.toObject(Submission::class.java)
-                    if (s != null) s.taskId to s else null
+                val subsMap = subSnap.documents.mapNotNull { doc ->
+                    val s = doc.toObject(Submission::class.java)
+                    if (s != null) {
+                        val key = if (s.prayerType.isNotEmpty()) "${s.taskId}_${s.prayerType}" else s.taskId
+                        key to s
+                    } else null
                 }.toMap()
+
+                val prayerDefinitions = listOf(
+                    Submission.PRAYER_SUBUH to "Subuh",
+                    Submission.PRAYER_DZUHUR to "Dzuhur",
+                    Submission.PRAYER_ASHAR to "Ashar",
+                    Submission.PRAYER_MAGHRIB to "Maghrib",
+                    Submission.PRAYER_ISYA to "Isya",
+                    Submission.PRAYER_TARAWIH to "Tarawih"
+                )
 
                 val today = LocalDate.now(wibZoneId)
                 val detailItems = allTasksCache.map { task ->
@@ -335,14 +348,22 @@ class TeacherDashboardViewModel : ViewModel() {
                         else -> TaskLockState.NOT_STARTED
                     }
 
-                    val submission = subsMap[task.taskId]
-                    val isSelesai = submission?.status == Submission.STATUS_SELESAI
+                    val prayerItems = prayerDefinitions.map { (pType, pLabel) ->
+                        val subKey = "${task.taskId}_$pType"
+                        val submission = subsMap[subKey] ?: subsMap[task.taskId]
+                        val isSelesai = submission?.status == Submission.STATUS_SELESAI
+                        PrayerSubmissionUiModel(
+                            prayerType = pType,
+                            label = pLabel,
+                            submission = submission,
+                            lockState = lockState,
+                            isSelesai = isSelesai
+                        )
+                    }
 
                     TaskItemUiModel(
                         task = task,
-                        submission = submission,
-                        lockState = lockState,
-                        isSelesai = isSelesai
+                        prayerItems = prayerItems
                     )
                 }
 

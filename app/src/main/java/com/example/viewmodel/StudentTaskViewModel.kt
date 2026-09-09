@@ -6,6 +6,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import id.ideahousetech.prayertime_qibla.model.PrayerTime
 import id.ideahousetech.prayertime_qibla.model.ramadhan.RamadhanClass
 import id.ideahousetech.prayertime_qibla.model.ramadhan.RamadhanTask
 import id.ideahousetech.prayertime_qibla.model.ramadhan.Student
@@ -17,20 +18,35 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 
 enum class TaskLockState {
-    ACTIVE,         // Hari ini: checklist aktif dan dapat diubah
-    EXPIRED,        // Sudah lewat hari: nonaktif + ikon gembok "Sudah lewat hari, tidak bisa diubah"
-    NOT_STARTED     // Belum waktunya: nonaktif + "Belum waktunya"
+    ACTIVE,         // Waktu aktif: checklist dapat diubah
+    EXPIRED,        // Waktu sudah lewat: terkunci
+    NOT_STARTED     // Belum masuk waktunya: terkunci
 }
 
-data class TaskItemUiModel(
-    val task: RamadhanTask,
+data class PrayerSubmissionUiModel(
+    val prayerType: String,
+    val label: String,          // "Subuh", "Dzuhur", dst
     val submission: Submission?,
     val lockState: TaskLockState,
     val isSelesai: Boolean
 )
+
+data class TaskItemUiModel(
+    val task: RamadhanTask,
+    val prayerItems: List<PrayerSubmissionUiModel>  // selalu 6 item per hari
+) {
+    // Helper untuk kompatibilitas ke belakang
+    val isSelesai: Boolean
+        get() = prayerItems.isNotEmpty() && prayerItems.all { it.isSelesai }
+    val submission: Submission?
+        get() = prayerItems.firstOrNull { it.submission != null }?.submission
+    val lockState: TaskLockState
+        get() = prayerItems.firstOrNull()?.lockState ?: TaskLockState.NOT_STARTED
+}
 
 data class StudentTaskUiState(
     val isLoading: Boolean = false,
@@ -47,7 +63,7 @@ class StudentTaskViewModel : ViewModel() {
 
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
-    private val wibZoneId = ZoneId.of("Asia/Jakarta")
+    private var cachedTodayPrayerTime: PrayerTime? = null
 
     private val _uiState = MutableStateFlow(StudentTaskUiState())
     val uiState: StateFlow<StudentTaskUiState> = _uiState.asStateFlow()
@@ -56,7 +72,68 @@ class StudentTaskViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(snackbarMessage = null)
     }
 
-    fun loadData() {
+    private fun parseTimeSafe(timeStr: String?): LocalTime? {
+        if (timeStr.isNullOrBlank()) return null
+        return try {
+            val clean = timeStr.trim().split(" ")[0]
+            val parts = clean.split(":")
+            LocalTime.of(parts[0].toInt(), parts[1].toInt())
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /*
+     * CATATAN KEAMANAN:
+     * Validasi lockState per-waktu-sholat ini HANYA berada di sisi client.
+     * Firestore Rules cuma menjamin submission tidak bisa dibuat di luar RENTANG HARI (taskDate s/d taskDate + 1 hari).
+     * Firestore Rules TIDAK bisa memverifikasi jam sholat spesifik karena itu bergantung pada lokasi GPS tiap siswa
+     * yang tidak tersedia di rules. Ini adalah keterbatasan yang disengaja/diterima untuk skala project ini.
+     */
+    private fun calculatePrayerLockState(
+        prayerType: String,
+        now: LocalTime,
+        fajr: LocalTime,
+        dhuhr: LocalTime,
+        asr: LocalTime,
+        maghrib: LocalTime,
+        isha: LocalTime
+    ): TaskLockState {
+        return when (prayerType) {
+            Submission.PRAYER_SUBUH -> when {
+                now.isBefore(fajr) -> TaskLockState.NOT_STARTED
+                now.isBefore(dhuhr) -> TaskLockState.ACTIVE
+                else -> TaskLockState.EXPIRED
+            }
+            Submission.PRAYER_DZUHUR -> when {
+                now.isBefore(dhuhr) -> TaskLockState.NOT_STARTED
+                now.isBefore(asr) -> TaskLockState.ACTIVE
+                else -> TaskLockState.EXPIRED
+            }
+            Submission.PRAYER_ASHAR -> when {
+                now.isBefore(asr) -> TaskLockState.NOT_STARTED
+                now.isBefore(maghrib) -> TaskLockState.ACTIVE
+                else -> TaskLockState.EXPIRED
+            }
+            Submission.PRAYER_MAGHRIB -> when {
+                now.isBefore(maghrib) -> TaskLockState.NOT_STARTED
+                now.isBefore(isha) -> TaskLockState.ACTIVE
+                else -> TaskLockState.EXPIRED
+            }
+            Submission.PRAYER_ISYA, Submission.PRAYER_TARAWIH -> when {
+                now.isBefore(isha) -> TaskLockState.NOT_STARTED
+                else -> TaskLockState.ACTIVE
+            }
+            else -> TaskLockState.NOT_STARTED
+        }
+    }
+
+    fun loadData(todayPrayerTime: PrayerTime? = cachedTodayPrayerTime) {
+        if (todayPrayerTime != null) {
+            cachedTodayPrayerTime = todayPrayerTime
+        }
+        val prayerTime = todayPrayerTime ?: cachedTodayPrayerTime
+
         val currentUser = auth.currentUser ?: return
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
@@ -87,36 +164,73 @@ class StudentTaskViewModel : ViewModel() {
                     .get()
                     .await()
 
-                val subsMap = subsQuery.documents.mapNotNull {
-                    val sub = it.toObject(Submission::class.java)?.copy(submissionId = it.id)
-                    if (sub != null) sub.taskId to sub else null
+                val subsMap = subsQuery.documents.mapNotNull { doc ->
+                    val sub = doc.toObject(Submission::class.java)?.copy(submissionId = doc.id)
+                    if (sub != null) {
+                        val key = if (sub.prayerType.isNotEmpty()) "${sub.taskId}_${sub.prayerType}" else sub.taskId
+                        key to sub
+                    } else null
                 }.toMap()
 
-                val todayLocalDate = LocalDate.now(wibZoneId)
+                val deviceZone = ZoneId.systemDefault()
+                val todayLocalDate = LocalDate.now(deviceZone)
+                val nowTime = LocalTime.now(deviceZone)
+
+                val fajrTime = parseTimeSafe(prayerTime?.fajr)
+                val dhuhrTime = parseTimeSafe(prayerTime?.dhuhr)
+                val asrTime = parseTimeSafe(prayerTime?.asr)
+                val maghribTime = parseTimeSafe(prayerTime?.maghrib)
+                val ishaTime = parseTimeSafe(prayerTime?.isha)
+
+                val prayerDefinitions = listOf(
+                    Submission.PRAYER_SUBUH to "Subuh",
+                    Submission.PRAYER_DZUHUR to "Dzuhur",
+                    Submission.PRAYER_ASHAR to "Ashar",
+                    Submission.PRAYER_MAGHRIB to "Maghrib",
+                    Submission.PRAYER_ISYA to "Isya",
+                    Submission.PRAYER_TARAWIH to "Tarawih"
+                )
 
                 val items = tasks.map { task ->
                     val taskLocalDate = Instant.ofEpochMilli(task.taskDate.toDate().time)
-                        .atZone(wibZoneId)
+                        .atZone(deviceZone)
                         .toLocalDate()
 
-                    val lockState = when {
-                        taskLocalDate.isEqual(todayLocalDate) -> TaskLockState.ACTIVE
-                        taskLocalDate.isBefore(todayLocalDate) -> TaskLockState.EXPIRED
-                        else -> TaskLockState.NOT_STARTED
-                    }
+                    val isPastDay = taskLocalDate.isBefore(todayLocalDate)
+                    val isFutureDay = taskLocalDate.isAfter(todayLocalDate)
 
-                    val submission = subsMap[task.taskId]
-                    val isSelesai = submission?.status == Submission.STATUS_SELESAI
+                    val prayerItems = prayerDefinitions.map { (pType, pLabel) ->
+                        val subKey = "${task.taskId}_$pType"
+                        val submission = subsMap[subKey] ?: subsMap[task.taskId]
+                        val isSelesai = submission?.status == Submission.STATUS_SELESAI
+
+                        val lockState = when {
+                            isPastDay -> TaskLockState.EXPIRED
+                            isFutureDay -> TaskLockState.NOT_STARTED
+                            prayerTime == null -> TaskLockState.NOT_STARTED
+                            fajrTime != null && dhuhrTime != null && asrTime != null && maghribTime != null && ishaTime != null -> {
+                                calculatePrayerLockState(pType, nowTime, fajrTime, dhuhrTime, asrTime, maghribTime, ishaTime)
+                            }
+                            else -> TaskLockState.NOT_STARTED
+                        }
+
+                        PrayerSubmissionUiModel(
+                            prayerType = pType,
+                            label = pLabel,
+                            submission = submission,
+                            lockState = lockState,
+                            isSelesai = isSelesai
+                        )
+                    }
 
                     TaskItemUiModel(
                         task = task,
-                        submission = submission,
-                        lockState = lockState,
-                        isSelesai = isSelesai
+                        prayerItems = prayerItems
                     )
                 }
 
-                val completed = items.count { it.isSelesai }
+                val completed = items.sumOf { item -> item.prayerItems.count { it.isSelesai } }
+                val total = items.size * 6
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -124,7 +238,7 @@ class StudentTaskViewModel : ViewModel() {
                     studentClass = studentClass,
                     taskItems = items,
                     completedCount = completed,
-                    totalCount = items.size
+                    totalCount = total
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -136,23 +250,22 @@ class StudentTaskViewModel : ViewModel() {
     }
 
     /**
-     * Mengubah status pengerjaan tugas (checklist aktif).
-     * Jika ditolak oleh Security Rules (misalnya lewat dari taskDate), exception ditangkap
-     * dan menampilkan Snackbar tanpa crash aplikasi.
+     * Mengubah status pengerjaan sub-item waktu sholat (checklist aktif).
+     * Jika ditolak oleh Security Rules, exception ditangkap dan menampilkan Snackbar tanpa crash aplikasi.
      */
-    fun toggleTask(item: TaskItemUiModel) {
+    fun toggleTask(item: TaskItemUiModel, prayerItem: PrayerSubmissionUiModel) {
         val currentUser = auth.currentUser ?: return
-        if (item.lockState != TaskLockState.ACTIVE) {
+        if (prayerItem.lockState != TaskLockState.ACTIVE) {
             _uiState.value = _uiState.value.copy(
-                snackbarMessage = if (item.lockState == TaskLockState.EXPIRED) 
-                    "Sudah lewat hari, tugas tidak dapat diubah lagi." 
-                else "Belum waktunya mengerjakan tugas ini."
+                snackbarMessage = if (prayerItem.lockState == TaskLockState.EXPIRED) 
+                    "Waktu ibadah ${prayerItem.label} sudah lewat, tidak dapat diubah lagi." 
+                else "Belum masuk waktu ibadah ${prayerItem.label}."
             )
             return
         }
 
-        val newStatus = if (item.isSelesai) Submission.STATUS_BELUM else Submission.STATUS_SELESAI
-        val submissionId = "${currentUser.uid}_${item.task.taskId}"
+        val newStatus = if (prayerItem.isSelesai) Submission.STATUS_BELUM else Submission.STATUS_SELESAI
+        val submissionId = "${currentUser.uid}_${item.task.taskId}_${prayerItem.prayerType}"
 
         viewModelScope.launch {
             try {
@@ -160,6 +273,7 @@ class StudentTaskViewModel : ViewModel() {
                     submissionId = submissionId,
                     studentId = currentUser.uid,
                     taskId = item.task.taskId,
+                    prayerType = prayerItem.prayerType,
                     status = newStatus,
                     updatedAt = Timestamp.now()
                 )
@@ -167,15 +281,20 @@ class StudentTaskViewModel : ViewModel() {
                 firestore.collection("submissions").document(submissionId).set(submission).await()
 
                 // Perbarui state lokal secara responsif
-                val updatedItems = _uiState.value.taskItems.map {
-                    if (it.task.taskId == item.task.taskId) {
-                        it.copy(
-                            submission = submission,
-                            isSelesai = newStatus == Submission.STATUS_SELESAI
-                        )
-                    } else it
+                val updatedItems = _uiState.value.taskItems.map { taskItem ->
+                    if (taskItem.task.taskId == item.task.taskId) {
+                        val updatedPrayers = taskItem.prayerItems.map { pItem ->
+                            if (pItem.prayerType == prayerItem.prayerType) {
+                                pItem.copy(
+                                    submission = submission,
+                                    isSelesai = newStatus == Submission.STATUS_SELESAI
+                                )
+                            } else pItem
+                        }
+                        taskItem.copy(prayerItems = updatedPrayers)
+                    } else taskItem
                 }
-                val completed = updatedItems.count { it.isSelesai }
+                val completed = updatedItems.sumOf { it.prayerItems.count { p -> p.isSelesai } }
 
                 _uiState.value = _uiState.value.copy(
                     taskItems = updatedItems,
@@ -192,6 +311,17 @@ class StudentTaskViewModel : ViewModel() {
                     snackbarMessage = "Gagal memperbarui tugas: ${e.localizedMessage ?: "Koneksi terputus"}"
                 )
             }
+        }
+    }
+
+    /**
+     * Fallback bila toggleTask dipanggil tanpa argumen prayerItem
+     */
+    fun toggleTask(item: TaskItemUiModel) {
+        val targetPrayer = item.prayerItems.firstOrNull { it.lockState == TaskLockState.ACTIVE }
+            ?: item.prayerItems.firstOrNull()
+        if (targetPrayer != null) {
+            toggleTask(item, targetPrayer)
         }
     }
 }

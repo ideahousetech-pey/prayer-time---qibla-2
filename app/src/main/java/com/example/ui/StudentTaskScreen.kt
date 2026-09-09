@@ -28,7 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.ideahousetech.prayertime_qibla.model.PrayerTime
 import id.ideahousetech.prayertime_qibla.ui.theme.*
+import id.ideahousetech.prayertime_qibla.viewmodel.PrayerSubmissionUiModel
 import id.ideahousetech.prayertime_qibla.viewmodel.StudentTaskViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.TaskItemUiModel
 import id.ideahousetech.prayertime_qibla.viewmodel.TaskLockState
@@ -37,11 +39,12 @@ import java.util.Locale
 
 /**
  * Layar Lembar Tugas Ramadhan 30 Hari untuk Siswa.
- * Menampilkan checklist harian dengan penegakan validasi lock berdasarkan taskDate.
+ * Menampilkan checklist 6 waktu ibadah harian dengan penegakan validasi waktu per ibadah.
  */
 @Composable
 fun StudentTaskScreen(
     viewModel: StudentTaskViewModel,
+    todayPrayerTime: PrayerTime? = null,
     onLogout: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -49,8 +52,8 @@ fun StudentTaskScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadData()
+    LaunchedEffect(todayPrayerTime) {
+        viewModel.loadData(todayPrayerTime)
     }
 
     LaunchedEffect(uiState.snackbarMessage) {
@@ -182,7 +185,7 @@ fun StudentTaskScreen(
                             border = androidx.compose.foundation.BorderStroke(1.dp, TealAccent.copy(alpha = 0.4f))
                         ) {
                             Text(
-                                text = "${uiState.completedCount}/${uiState.totalCount} Selesai",
+                                text = "${uiState.completedCount}/${uiState.totalCount} Ibadah",
                                 fontSize = 12.sp,
                                 fontFamily = NunitoFont,
                                 fontWeight = FontWeight.Bold,
@@ -261,13 +264,15 @@ fun StudentTaskScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp)
                 ) {
                     items(uiState.taskItems, key = { it.task.taskId }) { item ->
                         TaskItemCard(
                             item = item,
-                            onToggle = { viewModel.toggleTask(item) }
+                            onTogglePrayer = { prayerItem ->
+                                viewModel.toggleTask(item, prayerItem)
+                            }
                         )
                     }
                 }
@@ -279,7 +284,7 @@ fun StudentTaskScreen(
 @Composable
 private fun TaskItemCard(
     item: TaskItemUiModel,
-    onToggle: () -> Unit
+    onTogglePrayer: (PrayerSubmissionUiModel) -> Unit
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID")) }
     val formattedDate = remember(item.task.taskDate) {
@@ -290,148 +295,202 @@ private fun TaskItemCard(
         }
     }
 
-    val isClickable = item.lockState == TaskLockState.ACTIVE
+    val completedDayCount = item.prayerItems.count { it.isSelesai }
+    val isDayFull = completedDayCount == item.prayerItems.size && item.prayerItems.isNotEmpty()
+
     val cardBorderColor = when {
-        item.isSelesai -> TealAccent.copy(alpha = 0.5f)
-        item.lockState == TaskLockState.ACTIVE -> GoldPrimary.copy(alpha = 0.5f)
+        isDayFull -> TealAccent.copy(alpha = 0.5f)
+        item.prayerItems.any { it.lockState == TaskLockState.ACTIVE } -> GoldPrimary.copy(alpha = 0.5f)
         else -> CardElevated.copy(alpha = 0.4f)
     }
 
     Card(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = CardSurface),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, cardBorderColor, RoundedCornerShape(14.dp))
-            .clickable(enabled = isClickable, onClick = onToggle)
+            .border(1.dp, cardBorderColor, RoundedCornerShape(16.dp))
             .testTag("task_item_${item.task.dayIndex}")
     ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Day Badge
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = when {
-                    item.isSelesai -> TealAccent.copy(alpha = 0.15f)
-                    item.lockState == TaskLockState.ACTIVE -> GoldPrimary.copy(alpha = 0.15f)
-                    else -> MidnightLayer
-                },
-                modifier = Modifier.size(44.dp)
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Header Hari & Tanggal
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "H-${item.task.dayIndex}",
-                        fontSize = 12.sp,
-                        fontFamily = NunitoFont,
-                        fontWeight = FontWeight.Bold,
-                        color = when {
-                            item.isSelesai -> TealAccent
-                            item.lockState == TaskLockState.ACTIVE -> GoldPrimary
-                            else -> TextSecondary
-                        }
-                    )
-                }
-            }
-
-            Spacer(Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.task.title.ifEmpty { "Tugas Hari ke-${item.task.dayIndex}" },
-                    fontSize = 14.sp,
-                    fontFamily = NunitoFont,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = formattedDate,
-                    fontSize = 11.sp,
-                    fontFamily = NunitoFont,
-                    color = TextSecondary
-                )
-
-                Spacer(Modifier.height(4.dp))
-
-                // Keterangan Status Lock
-                when (item.lockState) {
-                    TaskLockState.ACTIVE -> {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = when {
+                        isDayFull -> TealAccent.copy(alpha = 0.15f)
+                        item.prayerItems.any { it.lockState == TaskLockState.ACTIVE } -> GoldPrimary.copy(alpha = 0.15f)
+                        else -> MidnightLayer
+                    },
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = if (item.isSelesai) "✓ Selesai dikerjakan hari ini" else "○ Buka checklist untuk menyelesaikan",
-                            fontSize = 11.sp,
+                            text = "H-${item.task.dayIndex}",
+                            fontSize = 12.sp,
                             fontFamily = NunitoFont,
-                            color = if (item.isSelesai) TealAccent else GoldPrimary
+                            fontWeight = FontWeight.Bold,
+                            color = when {
+                                isDayFull -> TealAccent
+                                item.prayerItems.any { it.lockState == TaskLockState.ACTIVE } -> GoldPrimary
+                                else -> TextSecondary
+                            }
                         )
                     }
-                    TaskLockState.EXPIRED -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.Lock,
-                                contentDescription = null,
-                                tint = WarningAmber,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = if (item.isSelesai) "Selesai (Sudah lewat hari, terkunci)" else "Sudah lewat hari, tidak bisa diubah",
-                                fontSize = 11.sp,
-                                fontFamily = NunitoFont,
-                                color = if (item.isSelesai) TealAccent else WarningAmber
-                            )
-                        }
-                    }
-                    TaskLockState.NOT_STARTED -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.Schedule,
-                                contentDescription = null,
-                                tint = TextSecondary,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "Belum waktunya",
-                                fontSize = 11.sp,
-                                fontFamily = NunitoFont,
-                                color = TextSecondary
-                            )
-                        }
-                    }
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.task.title.ifEmpty { "Tugas Hari ke-${item.task.dayIndex}" },
+                        fontSize = 14.sp,
+                        fontFamily = NunitoFont,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = formattedDate,
+                        fontSize = 11.sp,
+                        fontFamily = NunitoFont,
+                        color = TextSecondary
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isDayFull) TealAccent.copy(alpha = 0.15f) else MidnightLayer
+                ) {
+                    Text(
+                        text = "$completedDayCount/6 Ibadah",
+                        fontSize = 11.sp,
+                        fontFamily = NunitoFont,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDayFull) TealAccent else GoldPrimary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
                 }
             }
 
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = CardElevated.copy(alpha = 0.6f))
+            Spacer(Modifier.height(6.dp))
 
-            // Checkbox Icon
-            IconButton(
-                onClick = onToggle,
-                enabled = isClickable,
-                modifier = Modifier.testTag("task_checkbox_${item.task.dayIndex}")
-            ) {
-                if (item.isSelesai) {
-                    Icon(
-                        imageVector = Icons.Filled.CheckCircle,
-                        contentDescription = "Selesai",
-                        tint = TealAccent,
-                        modifier = Modifier.size(28.dp)
-                    )
-                } else if (item.lockState == TaskLockState.ACTIVE) {
-                    Icon(
-                        imageVector = Icons.Filled.RadioButtonUnchecked,
-                        contentDescription = "Belum selesai",
-                        tint = GoldPrimary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Filled.RadioButtonUnchecked,
-                        contentDescription = "Terkunci",
-                        tint = TextSecondary.copy(alpha = 0.4f),
-                        modifier = Modifier.size(28.dp)
+            // 6 Sub-items Waktu Sholat & Tarawih
+            item.prayerItems.forEach { prayer ->
+                PrayerItemRow(
+                    dayIndex = item.task.dayIndex,
+                    prayer = prayer,
+                    onToggle = { onTogglePrayer(prayer) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrayerItemRow(
+    dayIndex: Int,
+    prayer: PrayerSubmissionUiModel,
+    onToggle: () -> Unit
+) {
+    val isClickable = prayer.lockState == TaskLockState.ACTIVE
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(enabled = isClickable, onClick = onToggle)
+            .padding(horizontal = 6.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = prayer.label,
+                fontSize = 13.sp,
+                fontFamily = NunitoFont,
+                fontWeight = FontWeight.SemiBold,
+                color = if (prayer.isSelesai) TextPrimary else if (prayer.lockState == TaskLockState.ACTIVE) GoldLight else TextSecondary
+            )
+
+            when (prayer.lockState) {
+                TaskLockState.ACTIVE -> {
+                    Text(
+                        text = if (prayer.isSelesai) "✓ Selesai hari ini" else "○ Waktu aktif, sentuh untuk mencentang",
+                        fontSize = 10.sp,
+                        fontFamily = NunitoFont,
+                        color = if (prayer.isSelesai) TealAccent else GoldPrimary
                     )
                 }
+                TaskLockState.EXPIRED -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = null,
+                            tint = if (prayer.isSelesai) TealAccent else WarningAmber,
+                            modifier = Modifier.size(10.dp)
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Text(
+                            text = if (prayer.isSelesai) "Selesai (Terkunci)" else "Sudah lewat waktu",
+                            fontSize = 10.sp,
+                            fontFamily = NunitoFont,
+                            color = if (prayer.isSelesai) TealAccent else WarningAmber
+                        )
+                    }
+                }
+                TaskLockState.NOT_STARTED -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Schedule,
+                            contentDescription = null,
+                            tint = TextSecondary.copy(alpha = 0.6f),
+                            modifier = Modifier.size(10.dp)
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Text(
+                            text = "Belum waktunya",
+                            fontSize = 10.sp,
+                            fontFamily = NunitoFont,
+                            color = TextSecondary.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+        }
+
+        IconButton(
+            onClick = onToggle,
+            enabled = isClickable,
+            modifier = Modifier
+                .size(36.dp)
+                .testTag("task_checkbox_${dayIndex}_${prayer.prayerType}")
+        ) {
+            if (prayer.isSelesai) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Selesai",
+                    tint = TealAccent,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else if (prayer.lockState == TaskLockState.ACTIVE) {
+                Icon(
+                    imageVector = Icons.Filled.RadioButtonUnchecked,
+                    contentDescription = "Belum selesai",
+                    tint = GoldPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.RadioButtonUnchecked,
+                    contentDescription = "Terkunci",
+                    tint = TextSecondary.copy(alpha = 0.3f),
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }

@@ -212,7 +212,8 @@ class PrayerService(private val context: Context) {
             dhuhr = cleanTime(rawTimings.dhuhr),
             asr = cleanTime(rawTimings.asr),
             maghrib = cleanTime(rawTimings.maghrib),
-            isha = cleanTime(rawTimings.isha)
+            isha = cleanTime(rawTimings.isha),
+            imsak = cleanTime(rawTimings.imsak)
         )
     }
 
@@ -344,6 +345,7 @@ class PrayerService(private val context: Context) {
             // Hitung Sudut Jam untuk Sholat Subuh (Sun latitude = -20 derajat)
             val hourAngleFajr = getHourAngle(-20.0, latitude, declination)
             val fajrTimeAndHour = baseDhuhr - (hourAngleFajr / 15.0)
+            val imsakTimeAndHour = fajrTimeAndHour - (10.0 / 60.0)
 
             // Hitung Sudut Jam untuk Maghrib (Sun latitude = -1 derajat)
             val hourAngleMaghrib = getHourAngle(-1.0, latitude, declination)
@@ -368,7 +370,8 @@ class PrayerService(private val context: Context) {
                         dhuhr = formatDoubleToTimeString(baseDhuhr),
                         asr = formatDoubleToTimeString(asrTimeAndHour),
                         maghrib = formatDoubleToTimeString(maghribTimeAndHour),
-                        isha = formatDoubleToTimeString(ishaTimeAndHour)
+                        isha = formatDoubleToTimeString(ishaTimeAndHour),
+                        imsak = formatDoubleToTimeString(imsakTimeAndHour)
                     ),
                     offsetVal
                 )
@@ -386,7 +389,8 @@ class PrayerService(private val context: Context) {
             dhuhr = adjustTimeStr(time.dhuhr, offsetMinutes),
             asr = adjustTimeStr(time.asr, offsetMinutes),
             maghrib = adjustTimeStr(time.maghrib, offsetMinutes),
-            isha = adjustTimeStr(time.isha, offsetMinutes)
+            isha = adjustTimeStr(time.isha, offsetMinutes),
+            imsak = adjustTimeStr(time.imsak, offsetMinutes)
         )
     }
 
@@ -515,7 +519,8 @@ data class ApiTimings(
     @Json(name = "Dhuhr") val dhuhr: String,
     @Json(name = "Asr") val asr: String,
     @Json(name = "Maghrib") val maghrib: String,
-    @Json(name = "Isha") val isha: String
+    @Json(name = "Isha") val isha: String,
+    @Json(name = "Imsak") val imsak: String = ""
 )
 
 @JsonClass(generateAdapter = true)
