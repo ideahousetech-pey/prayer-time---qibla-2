@@ -24,6 +24,7 @@ import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
 import id.ideahousetech.prayertime_qibla.utils.pendingIntentFlags
 import id.ideahousetech.prayertime_qibla.utils.IntentSecurityUtils
 import kotlinx.coroutines.*
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -806,6 +807,11 @@ class AlarmReceiver : BroadcastReceiver() {
         private const val TAG = "AlarmReceiver"
         private val lastActionTimes = java.util.concurrent.ConcurrentHashMap<String, Long>()
         private const val RATE_LIMIT_WINDOW_MS = 2000L // 2 detik per action
+
+        private fun isActiveStudentSession(): Boolean {
+            val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            return user?.email?.endsWith("@siswa.internal") == true
+        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -847,8 +853,15 @@ class AlarmReceiver : BroadcastReceiver() {
                         val adzanVolume = prefs.getInt("adzan_volume", 80)
                         Log.d(TAG, "Alarm volume preference: $adzanVolume%")
 
-                        // Tampilkan notifikasi heads-up secara aman
-                        showHeadsUpNotification(context, prayerName)
+                        // Tahap 1: Tampilkan notifikasi heads-up secara instan (tanpa blocking network)
+                        val showRamadhanReminder = id.ideahousetech.prayertime_qibla.utils.HijriDateUtils.isCurrentlyRamadhan()
+                            && isActiveStudentSession()
+                        showHeadsUpNotification(context, prayerName, showRamadhanReminder)
+
+                        // Tahap 2: cek status async, TIDAK memblokir alur adzan
+                        if (showRamadhanReminder) {
+                            checkAndUpdateRamadhanReminderStatus(context, prayerName)
+                        }
 
                         // Putar adzan
                         NotificationService.getInstance(context).playAdzanAudio(isFajr, prayerName)
@@ -871,7 +884,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun showHeadsUpNotification(context: Context, prayerName: String) {
+    private fun showHeadsUpNotification(context: Context, prayerName: String, showRamadhanReminder: Boolean) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val rawLaunchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
@@ -899,7 +912,17 @@ class AlarmReceiver : BroadcastReceiver() {
         val notification = NotificationCompat.Builder(context, NotificationService.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("🕌 Waktu Sholat $prayerName")
-            .setContentText("Mari tegakkan sholat tepat waktu.")
+            .setContentText(
+                if (showRamadhanReminder) {
+                    if (prayerName == "Isya") {
+                        "Setelah sholat Isya & Tarawih, jangan lupa catat di Lembar Tugas Ramadhan ya!"
+                    } else {
+                        "Setelah sholat $prayerName, jangan lupa catat di Lembar Tugas Ramadhan ya!"
+                    }
+                } else {
+                    "Mari tegakkan sholat tepat waktu."
+                }
+            )
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(openPi)
@@ -907,6 +930,103 @@ class AlarmReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setFullScreenIntent(openPi, true)  // Tampil di lockscreen
+            .build()
+
+        nm.notify(1001, notification)
+    }
+
+    private fun checkAndUpdateRamadhanReminderStatus(context: Context, prayerName: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                kotlinx.coroutines.withTimeoutOrNull(5000L) {
+                    val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                        ?: return@withTimeoutOrNull
+
+                    val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+
+                    // Cari task hari ini (classId null, taskDate = hari ini)
+                    val todayStart = java.util.Calendar.getInstance().apply {
+                        set(java.util.Calendar.HOUR_OF_DAY, 0)
+                        set(java.util.Calendar.MINUTE, 0)
+                        set(java.util.Calendar.SECOND, 0)
+                        set(java.util.Calendar.MILLISECOND, 0)
+                    }
+                    val tomorrowStart = (todayStart.clone() as java.util.Calendar).apply {
+                        add(java.util.Calendar.DAY_OF_YEAR, 1)
+                    }
+                    val todayTs = com.google.firebase.Timestamp(todayStart.time)
+                    val tomorrowTs = com.google.firebase.Timestamp(tomorrowStart.time)
+
+                    val taskSnap = firestore.collection("tasks")
+                        .whereEqualTo("classId", null)
+                        .whereGreaterThanOrEqualTo("taskDate", todayTs)
+                        .whereLessThan("taskDate", tomorrowTs)
+                        .limit(1)
+                        .get()
+                        .await()
+
+                    val taskId = taskSnap.documents.firstOrNull()?.id ?: return@withTimeoutOrNull
+
+                    // Untuk Isya, cek KEDUA prayerType (isya & tarawih). Untuk prayer lain, cek 1 saja.
+                    val prayerTypesToCheck = if (prayerName == "Isya") {
+                        listOf("isya", "tarawih")
+                    } else {
+                        listOf(mapPrayerNameToType(prayerName))
+                    }
+
+                    val allDone = prayerTypesToCheck.all { pType ->
+                        val submissionId = "${uid}_${taskId}_${pType}"
+                        val doc = firestore.collection("submissions").document(submissionId).get().await()
+                        doc.getString("status") == "selesai"
+                    }
+
+                    if (allDone) {
+                        updateNotificationToConfirmed(context, prayerName)
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("AlarmReceiver", "Gagal cek status Ramadhan reminder (fail-open, notifikasi tetap generik): ${e.message}")
+            }
+        }
+    }
+
+    private fun mapPrayerNameToType(prayerName: String): String {
+        return when (prayerName) {
+            "Subuh" -> "subuh"
+            "Dzuhur" -> "dzuhur"
+            "Ashar" -> "ashar"
+            "Maghrib" -> "maghrib"
+            "Isya" -> "isya"
+            else -> "subuh"
+        }
+    }
+
+    private fun updateNotificationToConfirmed(context: Context, prayerName: String) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val rawLaunchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?.apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK }
+            ?: Intent()
+        val openPi = IntentSecurityUtils.createSecurePendingIntent(
+            context, 0, rawLaunchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT,
+            IntentSecurityUtils.PendingIntentType.ACTIVITY
+        )
+
+        val text = if (prayerName == "Isya") {
+            "Alhamdulillah, Isya & Tarawih hari ini sudah tercatat!"
+        } else {
+            "Alhamdulillah, $prayerName hari ini sudah tercatat!"
+        }
+
+        val notification = NotificationCompat.Builder(context, NotificationService.CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("🕌 Waktu Sholat $prayerName")
+            .setContentText(text)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(openPi)
+            .setAutoCancel(true)
             .build()
 
         nm.notify(1001, notification)
