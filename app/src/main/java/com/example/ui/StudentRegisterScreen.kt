@@ -219,7 +219,7 @@ fun StudentRegisterScreen(
                     classCode = it.uppercase()
                     viewModel.clearMessages()
                 },
-                label = { Text("Kode Kelas (WAJIB, misal: 6A-RMD26) *") },
+                label = { Text("Kode Kelas (WAJIB, misal: 6A-KRAMAT08) *") },
                 leadingIcon = {
                     Icon(Icons.Filled.Key, contentDescription = null, tint = GoldPrimary)
                 },
