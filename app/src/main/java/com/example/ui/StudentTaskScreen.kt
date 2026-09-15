@@ -7,18 +7,28 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Brightness4
+import androidx.compose.material.icons.filled.Brightness5
+import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -260,7 +270,20 @@ fun StudentTaskScreen(
                     )
                 }
             } else {
+                val listState = rememberLazyListState()
+
+                LaunchedEffect(uiState.taskItems) {
+                    val todayIndex = uiState.taskItems.indexOfFirst { it.isToday }
+                    if (todayIndex >= 0) {
+                        listState.animateScrollToItem(
+                            index = todayIndex,
+                            scrollOffset = -50  // sedikit ruang di atas card, biar tidak mepet
+                        )
+                    }
+                }
+
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 20.dp),
@@ -299,94 +322,217 @@ private fun TaskItemCard(
     val isDayFull = completedDayCount == item.prayerItems.size && item.prayerItems.isNotEmpty()
 
     val cardBorderColor = when {
+        item.isToday -> GoldPrimary.copy(alpha = 0.65f)
         isDayFull -> TealAccent.copy(alpha = 0.5f)
         item.prayerItems.any { it.lockState == TaskLockState.ACTIVE } -> GoldPrimary.copy(alpha = 0.5f)
         else -> CardElevated.copy(alpha = 0.4f)
     }
 
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CardSurface),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, cardBorderColor, RoundedCornerShape(16.dp))
-            .testTag("task_item_${item.task.dayIndex}")
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Header Hari & Tanggal
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = when {
-                        isDayFull -> TealAccent.copy(alpha = 0.15f)
-                        item.prayerItems.any { it.lockState == TaskLockState.ACTIVE } -> GoldPrimary.copy(alpha = 0.15f)
-                        else -> MidnightLayer
-                    },
-                    modifier = Modifier.size(42.dp)
+    if (item.isToday) {
+        // Tampilan PENUH (HARI INI)
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, cardBorderColor, RoundedCornerShape(16.dp))
+                .testTag("task_item_${item.task.dayIndex}")
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                // Header Hari & Tanggal
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = when {
+                            isDayFull -> TealAccent.copy(alpha = 0.15f)
+                            item.prayerItems.any { it.lockState == TaskLockState.ACTIVE } -> GoldPrimary.copy(alpha = 0.15f)
+                            else -> MidnightLayer
+                        },
+                        modifier = Modifier.size(42.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "H-${item.task.dayIndex}",
+                                fontSize = 12.sp,
+                                fontFamily = NunitoFont,
+                                fontWeight = FontWeight.Bold,
+                                color = when {
+                                    isDayFull -> TealAccent
+                                    item.prayerItems.any { it.lockState == TaskLockState.ACTIVE } -> GoldPrimary
+                                    else -> TextSecondary
+                                }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "H-${item.task.dayIndex}",
-                            fontSize = 12.sp,
+                            text = item.task.title.ifEmpty { "Tugas Hari ke-${item.task.dayIndex}" },
+                            fontSize = 14.sp,
                             fontFamily = NunitoFont,
                             fontWeight = FontWeight.Bold,
-                            color = when {
-                                isDayFull -> TealAccent
-                                item.prayerItems.any { it.lockState == TaskLockState.ACTIVE } -> GoldPrimary
-                                else -> TextSecondary
-                            }
+                            color = TextPrimary
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = formattedDate,
+                            fontSize = 11.sp,
+                            fontFamily = NunitoFont,
+                            color = TextSecondary
+                        )
+                    }
+
+                    // Badge HARI INI
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = GoldPrimary
+                    ) {
+                        Text(
+                            text = "HARI INI",
+                            fontSize = 10.sp,
+                            fontFamily = NunitoFont,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = DeepNight,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.width(6.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isDayFull) TealAccent.copy(alpha = 0.15f) else MidnightLayer
+                    ) {
+                        Text(
+                            text = "$completedDayCount/6 Ibadah",
+                            fontSize = 11.sp,
+                            fontFamily = NunitoFont,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDayFull) TealAccent else GoldPrimary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                 }
 
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(color = CardElevated.copy(alpha = 0.6f))
+                Spacer(Modifier.height(6.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = item.task.title.ifEmpty { "Tugas Hari ke-${item.task.dayIndex}" },
-                        fontSize = 14.sp,
-                        fontFamily = NunitoFont,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = formattedDate,
-                        fontSize = 11.sp,
-                        fontFamily = NunitoFont,
-                        color = TextSecondary
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isDayFull) TealAccent.copy(alpha = 0.15f) else MidnightLayer
-                ) {
-                    Text(
-                        text = "$completedDayCount/6 Ibadah",
-                        fontSize = 11.sp,
-                        fontFamily = NunitoFont,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isDayFull) TealAccent else GoldPrimary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                // 6 Sub-items Waktu Sholat & Tarawih
+                item.prayerItems.forEach { prayer ->
+                    PrayerItemRow(
+                        dayIndex = item.task.dayIndex,
+                        prayer = prayer,
+                        onToggle = { onTogglePrayer(prayer) }
                     )
                 }
             }
+        }
+    } else {
+        // Tampilan Ciut (Compact) / Expanded untuk selain hari ini
+        var expanded by rememberSaveable(item.task.taskId) { mutableStateOf(false) }
 
-            Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = CardElevated.copy(alpha = 0.6f))
-            Spacer(Modifier.height(6.dp))
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, cardBorderColor, RoundedCornerShape(16.dp))
+                .testTag("task_item_${item.task.dayIndex}")
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                // Header (Clickable untuk toggle expand/collapse)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { expanded = !expanded },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isDayFull) TealAccent.copy(alpha = 0.15f) else MidnightLayer,
+                        modifier = Modifier.size(if (expanded) 42.dp else 36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "H-${item.task.dayIndex}",
+                                fontSize = if (expanded) 12.sp else 11.sp,
+                                fontFamily = NunitoFont,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDayFull) TealAccent else TextSecondary
+                            )
+                        }
+                    }
 
-            // 6 Sub-items Waktu Sholat & Tarawih
-            item.prayerItems.forEach { prayer ->
-                PrayerItemRow(
-                    dayIndex = item.task.dayIndex,
-                    prayer = prayer,
-                    onToggle = { onTogglePrayer(prayer) }
-                )
+                    Spacer(Modifier.width(10.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = item.task.title.ifEmpty { "Tugas Hari ke-${item.task.dayIndex}" },
+                            fontSize = if (expanded) 14.sp else 12.sp,
+                            fontFamily = NunitoFont,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.height(1.dp))
+                        Text(
+                            text = formattedDate,
+                            fontSize = 11.sp,
+                            fontFamily = NunitoFont,
+                            color = TextSecondary
+                        )
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isDayFull) TealAccent.copy(alpha = 0.15f) else MidnightLayer
+                    ) {
+                        Text(
+                            text = if (expanded) "$completedDayCount/6 Ibadah" else "$completedDayCount/6",
+                            fontSize = 11.sp,
+                            fontFamily = NunitoFont,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDayFull) TealAccent else TextSecondary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.width(6.dp))
+
+                    Icon(
+                        imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                        contentDescription = if (expanded) "Ciutkan" else "Perluas",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Bagian 6 Baris Sub-Item yang di-expand
+                AnimatedVisibility(visible = expanded) {
+                    Column {
+                        Spacer(Modifier.height(10.dp))
+                        HorizontalDivider(color = CardElevated.copy(alpha = 0.6f))
+                        Spacer(Modifier.height(6.dp))
+
+                        item.prayerItems.forEach { prayer ->
+                            PrayerItemRow(
+                                dayIndex = item.task.dayIndex,
+                                prayer = prayer,
+                                onToggle = { onTogglePrayer(prayer) }
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -400,6 +546,17 @@ private fun PrayerItemRow(
 ) {
     val isClickable = prayer.lockState == TaskLockState.ACTIVE
 
+    val iconColor = if (prayer.isSelesai) TextPrimary else if (prayer.lockState == TaskLockState.ACTIVE) GoldLight else TextSecondary
+    val prayerIcon = when (prayer.prayerType) {
+        "subuh" -> Icons.Filled.Brightness5
+        "dzuhur" -> Icons.Filled.WbSunny
+        "ashar" -> Icons.Filled.Brightness6
+        "maghrib" -> Icons.Filled.Brightness4
+        "isya" -> Icons.Filled.NightsStay
+        "tarawih" -> Icons.Filled.Star
+        else -> Icons.Filled.Schedule
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -408,13 +565,22 @@ private fun PrayerItemRow(
             .padding(horizontal = 6.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Icon(
+            imageVector = prayerIcon,
+            contentDescription = null,
+            tint = iconColor,
+            modifier = Modifier.size(18.dp)
+        )
+
+        Spacer(Modifier.width(8.dp))
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = prayer.label,
                 fontSize = 13.sp,
                 fontFamily = NunitoFont,
                 fontWeight = FontWeight.SemiBold,
-                color = if (prayer.isSelesai) TextPrimary else if (prayer.lockState == TaskLockState.ACTIVE) GoldLight else TextSecondary
+                color = iconColor
             )
 
             when (prayer.lockState) {

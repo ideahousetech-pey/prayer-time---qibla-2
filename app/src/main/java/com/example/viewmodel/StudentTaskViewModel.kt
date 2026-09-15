@@ -37,7 +37,8 @@ data class PrayerSubmissionUiModel(
 
 data class TaskItemUiModel(
     val task: RamadhanTask,
-    val prayerItems: List<PrayerSubmissionUiModel>  // selalu 6 item per hari
+    val prayerItems: List<PrayerSubmissionUiModel>,  // selalu 6 item per hari
+    val isToday: Boolean = false
 ) {
     // Helper untuk kompatibilitas ke belakang
     val isSelesai: Boolean
@@ -198,6 +199,7 @@ class StudentTaskViewModel : ViewModel() {
 
                     val isPastDay = taskLocalDate.isBefore(todayLocalDate)
                     val isFutureDay = taskLocalDate.isAfter(todayLocalDate)
+                    val isToday = taskLocalDate.isEqual(todayLocalDate)
 
                     val prayerItems = prayerDefinitions.map { (pType, pLabel) ->
                         val subKey = "${task.taskId}_$pType"
@@ -225,7 +227,8 @@ class StudentTaskViewModel : ViewModel() {
 
                     TaskItemUiModel(
                         task = task,
-                        prayerItems = prayerItems
+                        prayerItems = prayerItems,
+                        isToday = isToday
                     )
                 }
 
